@@ -1,0 +1,12 @@
+[requires]
+log4cxx/1.6.2@stephen/stable
+boost/1.71.0@stephen/stable
+
+[options]
+log4cxx:shared=True
+boost:shared=False
+boost:zlib=False
+boost:bzip2=False
+
+[generators]
+cmake_paths
