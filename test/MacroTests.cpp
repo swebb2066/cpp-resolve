@@ -9,6 +9,6 @@ BOOST_AUTO_TEST_CASE( aprinitializer_cpp_test )
 	{ "LOG4CXX_ABI_VERSION=16"
 	};
     BOOST_REQUIRE(file.LoadFile("log4cxx/aprinitializer.cpp", definitions));
-    BOOST_CHECK_EQUAL(macroCount, 4);
+    BOOST_CHECK_EQUAL(file.GetUpdateCount(), 4);
     BOOST_CHECK(file.StoreFile("log4cxx/aprinitializer_new.cpp"));
 }

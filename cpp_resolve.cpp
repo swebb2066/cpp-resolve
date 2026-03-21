@@ -85,7 +85,7 @@ int main( int argc, char* argv[] )
                      {
                         std::cout << fileIter.Item().string()
 							<< ": " << deletedLineCount << " lines"
-							<< (changeFiles ? " removed" : " removable"
+							<< (changeFiles ? " removed" : " removable")
 							<< "\n";
                     }
                 }

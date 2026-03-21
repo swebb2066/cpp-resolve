@@ -28,6 +28,8 @@ public: // Types
         }
     };
 
+    class Context;
+
 protected: // Types
     using PositionStore = std::vector<PositionType>;
     using StringPositionMap = std::map<StringType, PositionStore>;
@@ -85,8 +87,6 @@ protected: // Support methods
     boost::wave::token_id GetNonWhitespaceTokenBeforeOtherParen(const PositionType& index, PositionType* resultIndex = 0) const;
     bool HasUpdateBetween(const PositionType& start, const PositionType& end) const;
     void SetLineIndex();
-
-    class Context;
 };
 
 /// Allows operations to be selectively performed on matched function call style instances

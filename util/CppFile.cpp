@@ -26,18 +26,33 @@ using position_type = boost::wave::util::file_position<BOOST_WAVE_STRINGTYPE>;
 using TokenType = boost::wave::cpplexer::lex_token<position_type>;
 using lex_iterator_type = boost::wave::cpplexer::lex_iterator<TokenType>;
 using StringType = std::string;
+using PositionType = CppFile::PositionType;
+using PositionPair = std::pair<PositionType, PositionType>;
 
 // Directive data
 struct ConditionPosition
 {
     TokenType             token;
-    CppFile::PositionType pos;
-    Util::Optional<bool>   resolvedValue;
+    PositionPair          pos;
+    Util::Optional<bool>  resolvedValue;
+    ConditionPosition() {}
+    ConditionPosition(const TokenType& id, const PositionType& start)
+        : token{ id }
+        , pos{ start, {} }
+        {}
 };
 struct DirectivePosition
 {
     ConditionPosition              start;
     std::vector<ConditionPosition> end;
+    DirectivePosition() {}
+    DirectivePosition(const TokenType& id, const PositionType& start)
+        : start{ id, start }
+        {}
+    DirectivePosition(const ConditionPosition& initial, const std::vector<ConditionPosition>& alternates)
+        : start{ initial }
+        , end{ alternates }
+        {}
 };
 
     static Util::LoggerPtr
@@ -45,252 +60,11 @@ log_s(Util::getLogger("CppFile"));
 
 // Put \c item onto \c os
     std::ostream&
-operator<<(std::ostream& stream, CppFile::PositionType const& item)
+operator<<(std::ostream& stream, PositionType const& item)
 {
     stream << item.line << ',' << item.column;
     return stream;
 }
-
-/// Processing hooks that enable single file processing
-    template <typename ContextT>
-class CustomDirectivesHooks
-    : public boost::wave::context_policies::default_preprocessing_hooks
-{
-    using PositionType = typename CppFile::PositionType;
-
-public: // Hooked methods
-    /// Prevent include processing
-    bool found_include_directive
-        ( ContextT const&    ctx
-        , StringType const& filename
-        , bool               include_next
-        )
-    {
-        LOG4CXX_TRACE(log_s, "include " << filename);
-        return true;    // skip all #includes
-    }
-
-    /// Record directive positions
-    template <typename TokenT>
-    bool found_directive(ContextT const &ctx, TokenT const &directive)
-    {
-        bool skip = false;
-        auto current_position = directive.get_position();
-        auto pos = PositionType{current_position.get_line(), current_position.get_column()};
-        switch (directive)
-        {
-        case boost::wave::T_PP_IF:
-        case boost::wave::T_PP_IFDEF:
-        case boost::wave::T_PP_IFNDEF:
-            ctx.directiveStack.push_back(DirectivePosition{ ConditionPosition{ directive, pos, {} }, {} });
-            break;
-        case boost::wave::T_PP_ELSE:
-            if (ctx.directiveStack.empty())
-            {
-                LOG4CXX_WARN(log_s, "Missing #if"
-                    << " at " << ctx.path
-                    << '(' << current_position.get_line()
-                    << ',' << current_position.get_column() << ')'
-                    );
-                break;
-            }
-            LOG4CXX_TRACE(log_s, "else " << " start@ "
-                << (ctx.directiveStack.back().end.empty()
-                ? ctx.directiveStack.back().start
-                : ctx.directiveStack.end.back().start
-                ));
-            ctx.directiveStack.back().end.push_back(ConditionPosition{ directive, pos, {} });
-            break;
-        case boost::wave::T_PP_ELIF:
-            if (ctx.directiveStack.empty())
-            {
-                LOG4CXX_WARN(log_s, "Missing #if"
-                    << " at " << ctx.path
-                    << '(' << current_position.get_line()
-                    << ',' << current_position.get_column() << ')'
-                    );
-                break;
-            }
-            if (ctx.directiveStack.back().end.empty())
-                LOG4CXX_TRACE(log_s, "elif[0]" << " start@ " << ctx.directiveStack.back().start);
-            else
-            {
-                LOG4CXX_TRACE(log_s, "elif[" << ctx.directiveStack.end.size() << ']'
-                    << " start@ " << ctx.directiveStack.end.back().start);
-            }
-            ctx.directiveStack.back().end.push_back(ConditionPosition{ directive, pos, {} });
-            break;
-        case boost::wave::T_PP_ENDIF:
-            if (ctx.directiveStack.empty())
-            {
-                LOG4CXX_WARN(log_s, "Missing #if"
-                    << " at " << ctx.path
-                    << '(' << current_position.get_line()
-                    << ',' << current_position.get_column() << ')'
-                    );
-                break;
-            }
-            LOG4CXX_TRACE(log_s, "endif" << " start@ "
-                << (ctx.directiveStack.back().end.empty()
-                ? ctx.directiveStack.back().start
-                : ctx.directiveStack.end.back().start
-                ));
-            ctx.directiveStack.back().end.push_back(ConditionPosition{ directive, pos, {} });
-            ctx.ProcessDirective(ctx.directiveStack.back());
-            ctx.directiveStack.pop_back();
-            break;
-        default:
-            LOG4CXX_TRACE(log_s, "directive " << directive.get_value());
-            skip = true;
-            break;
-        }
-        return skip;
-    }
-
-    template <typename TokenT, typename ContainerT>
-    bool evaluated_conditional_expression
-        ( ContextT const& ctx
-        , TokenT const& directive
-        , ContainerT const& expression
-        , bool expression_value
-        )
-    {
-        LOG4CXX_TRACE(log_s, "directive " << directive.get_value()
-            << " conditional_expression {" << boost::wave::util::impl::as_string(expression) << '}'
-            << " value " << expression_value
-            );
-        if (ctx.directiveStack.empty())
-        {
-            LOG4CXX_WARN(log_s, "Missing #if"
-                << " at " << ctx.path
-                << '(' << current_position.get_line()
-                << ',' << current_position.get_column() << ')'
-                );
-        }
-        else if (ctx.IsResolved(expression))
-        {
-            if (!ctx.directiveStack.back().end.empty())
-                ctx.directiveStack.back().end.back().resolvedValue = expression_value;
-            else
-                ctx.directiveStack.back().start.resolvedValue
-                    = boost::wave::T_PP_IFNDEF == directive
-                    ? !expression_value
-                    : expression_value;
-        }
-        return false; // ok to continue, do not re-evaluate expression
-    }
-};
-
-/// A directive processing context
-class CppFile::Context : public boost::wave::context
-    < StringType::const_iterator
-    , lex_iterator_type
-    , boost::wave::iteration_context_policies::load_file_to_string
-    , CustomDirectivesHooks<CppFile::Context>
-    >
-{
-    using BaseType = boost::wave::context
-        < StringType::const_iterator
-        , lex_iterator_type
-        , boost::wave::iteration_context_policies::load_file_to_string
-        , CustomDirectivesHooks<CppFile::Context>
-        >;
-public: // Types
-    using TokenId = boost::wave::token_id;
-    using IndexedToken = std::map<PositionType, TokenId>;
-    using IndexMap = std::map<PositionType, PositionType>;
-
-public: // Attributes
-    CppFile* parent{ nullptr };
-    std::vector<DirectivePosition> directiveStack;
-    StringStore definedSymbols;
-
-public: // ...structors
-    CppFile::Context(const StringType& content, const StringType& path)
-        : BaseType(content.begin(), content.end(), path.c_str(), CustomDirectivesHooks<CppFile::Context>{})
-    {
-    }
-    CppFile::Context
-        ( CppFile* parent
-        , const StringStore& definitions
-        , const PathType& path
-        )
-        : CppFile::Context(parent->GetContent(), path.string())
-    {
-        this->parent = parent;
-        for (auto& item : definitions)
-        {
-            auto pos = item.find('=');
-            if (item.npos == pos)
-                definedSymbols.push_back(item);
-            else
-                definedSymbols.push_back(item.substr(0, pos));
-        }
-    }
-
-    template <typename ContainerT>
-    bool IsResolved(ContainerT const& expression) const
-    {
-        for (auto& item : expression)
-        {
-            if (this->definedSymbols.end() != std::find(this->definedSymbols.begin(), this->definedSymbols.end(), item.get_value()))
-                return true;
-        }
-        return false;
-    }
-
-    // Delete a #if directive line that:
-    // - has a 'resolvedValue' set to 'true'
-    // Delete each directive block that:
-    // - has a 'resolvedValue' set to 'false'
-    // - is an else condition of a #if block that has its 'resolvedValue' set to 'true'
-    // Change a #elif to a #else if:
-    // - it has its 'resolvedValue' set to 'true' and
-    // - the previous #if block is not resolved
-    void ProcessDirective(const DirectivePosition& directive)
-    {
-        if (directive.start.resolvedValue && *directive.start.resolvedValue)
-        {
-            // delete the directive line
-            this->parent->RemoveLines(directive.start.pos.line);
-            // delete the else to the endif
-            this->parent->RemoveLines(directive.end.front().pos.line, directive.end.back().pos.line);
-        }
-        else if (directive.start.resolvedValue && !*directive.start.resolvedValue)
-        {
-            // delete until a resolved to 'true' #elif, an unresolved #elif, upto and including the #else or #endif
-            auto lastDeletedLine = directive.start.pos.line;
-            for (auto& item : directive.end)
-            {
-                lastDeletedLine = item.pos.line - 1;
-                if ((item.resolvedValue && *item.resolvedValue) ||
-                    (!item.resolvedValue && item.token == boost::wave::T_PP_ELIF))
-                {
-                    StringType oldText{ item.token.get_value().begin(), item.token.get_value().end() };
-                    this->parent->ModifyText(item.pos, oldText, "#if");
-                    break;
-                }
-                else if (item.token == boost::wave::T_PP_ELSE ||
-                         item.token == boost::wave::T_PP_ENDIF)
-                {
-                    lastDeletedLine = item.pos.line;
-                    break;
-                }
-            }
-            this->parent->RemoveLines(directive.start.pos.line, lastDeletedLine);
-        }
-        else // !directive.start.resolvedValue
-        {
-             ProcessDirective(DirectivePosition
-                { directive.end.front()
-                , { directive.end.begin() + 1, directive.end.end() }
-                });
-        }
-    }
-
-    /// Put attributes pointed to by \c pItem onto \c stream
-    friend std::ostream& operator<<(std::ostream& stream, iterator_type const& pItem);
-};
 
 /// Enables output in C-style escaped characters of a string
 template <class StringType>
@@ -325,19 +99,295 @@ operator<<(std::ostream& stream, CStringRef<StringType> const& item)
     return stream;
 }
 
+struct BoostWaveToken
+{
+    boost::wave::token_id      id;
+    BOOST_WAVE_STRINGTYPE      name;
+    position_type              pos;
+};
+
 /// Put attributes pointed to by \c pItem onto \c stream
     std::ostream&
-operator<<(std::ostream& stream, CppFile::Context::iterator_type const& pItem)
+operator<<(std::ostream& stream, const BoostWaveToken& item)
 {
-    boost::wave::token_id id = *pItem;
-    stream << boost::wave::get_token_name(id)
-        << "(#" << BASEID_FROM_TOKEN(id) << ')';
+    stream << boost::wave::get_token_name(item.id)
+        << "(#" << BASEID_FROM_TOKEN(item.id) << ')';
 
-    stream << ": >" << CStringRef<TokenType::string_type>(pItem->get_value()) << '<';
-    stream << " (" << pItem->get_position().get_line()
-        << ',' << pItem->get_position().get_column()
+    stream << ": >" << CStringRef<TokenType::string_type>(item.name) << '<';
+    stream << " (" << item.pos.get_line()
+        << ',' << item.pos.get_column()
         << ')';
     return stream;
+}
+
+/// Processing hooks that enable single file processing
+class CustomDirectivesHooks
+    : public boost::wave::context_policies::default_preprocessing_hooks
+{
+public: // Hooked methods
+    /// Prevent include processing
+    template <typename ContextT>
+    bool found_include_directive
+        ( ContextT const&    ctx
+        , StringType const& filename
+        , bool               include_next
+        )
+    {
+        LOG4CXX_TRACE(log_s, "include " << filename);
+        return true;    // skip all #includes
+    }
+
+    /// Record directive positions
+    template <typename ContextT, typename TokenT>
+    bool found_directive(ContextT const &ctx, TokenT const &directive);
+
+    template <typename ContextT, typename TokenT, typename ContainerT>
+    bool evaluated_conditional_expression
+        ( ContextT const& ctx
+        , TokenT const& directive
+        , ContainerT const& expression
+        , bool expression_value
+        );
+};
+
+/// A directive processing context
+class CppFile::Context : public boost::wave::context
+    < StringType::const_iterator
+    , lex_iterator_type
+    , boost::wave::iteration_context_policies::load_file_to_string
+    , CustomDirectivesHooks
+    , CppFile::Context
+    >
+{
+    using BaseType = boost::wave::context
+        < StringType::const_iterator
+        , lex_iterator_type
+        , boost::wave::iteration_context_policies::load_file_to_string
+        , CustomDirectivesHooks
+        , CppFile::Context
+        >;
+public: // Types
+    using TokenId = boost::wave::token_id;
+    using IndexedToken = std::map<PositionType, TokenId>;
+    using IndexMap = std::map<PositionType, PositionType>;
+
+public: // Attributes
+    CppFile* parent{ nullptr };
+    std::vector<DirectivePosition> directiveStack;
+    StringStore definedSymbols;
+
+public: // ...structors
+    Context(const StringType& content, const StringType& path)
+        : BaseType(content.begin(), content.end(), path.c_str(), CustomDirectivesHooks{})
+    {
+    }
+    Context
+        ( CppFile* parent
+        , const StringStore& definitions
+        , const PathType& path
+        )
+        : CppFile::Context(parent->GetContent(), path.string())
+    {
+        this->parent = parent;
+        for (auto& item : definitions)
+        {
+            auto pos = item.find('=');
+            if (item.npos == pos)
+                definedSymbols.push_back(item);
+            else
+                definedSymbols.push_back(item.substr(0, pos));
+        }
+    }
+
+    template <typename ContainerT>
+    bool IsResolved(ContainerT const& expression, PositionType* endPos) const
+    {
+        bool result = false;
+        for (auto& item : expression)
+        {
+            StringType symbol(item.get_value().c_str());
+            if (this->definedSymbols.end() != std::find(this->definedSymbols.begin(), this->definedSymbols.end(), symbol))
+                result = true;
+            if (endPos)
+            {
+                *endPos = PositionType
+                    { CountType(item.get_position().get_line())
+                    , CountType(item.get_position().get_column() + item.get_value().size())
+                    };
+            }
+        }
+        return result;
+    }
+
+    // Delete a #if directive line that:
+    // - has a 'resolvedValue' set to 'true'
+    // Delete each directive block that:
+    // - has a 'resolvedValue' set to 'false'
+    // - is an else condition of a #if block that has its 'resolvedValue' set to 'true'
+    // Change a #elif to a #else if:
+    // - it has its 'resolvedValue' set to 'true' and
+    // - the previous #if block is not resolved
+    void ProcessDirective(const DirectivePosition& directive)
+    {
+        if (directive.start.resolvedValue && *directive.start.resolvedValue)
+        {
+            // delete the directive line
+            this->parent->RemoveLines(directive.start.pos.first.line, directive.start.pos.second.line);
+            // delete the else to the endif
+            this->parent->RemoveLines(directive.end.front().pos.first.line, directive.end.back().pos.second.line);
+        }
+        else if (directive.start.resolvedValue && !*directive.start.resolvedValue)
+        {
+            // delete until a resolved to 'true' #elif, an unresolved #elif, upto and including the #else or #endif
+            auto lastDeletedLine = directive.start.pos.second.line;
+            for (auto& item : directive.end)
+            {
+                lastDeletedLine = item.pos.first.line - 1;
+                if ((item.resolvedValue && *item.resolvedValue) ||
+                    (!item.resolvedValue && item.token == boost::wave::T_PP_ELIF))
+                {
+                    StringType oldText{ item.token.get_value().begin(), item.token.get_value().end() };
+                    this->parent->ModifyText(item.pos.first, oldText, "#if");
+                    break;
+                }
+                else if (item.token == boost::wave::T_PP_ELSE ||
+                         item.token == boost::wave::T_PP_ENDIF)
+                {
+                    lastDeletedLine = item.pos.second.line;
+                    break;
+                }
+            }
+            this->parent->RemoveLines(directive.start.pos.first.line, lastDeletedLine);
+        }
+        else // !directive.start.resolvedValue
+        {
+             ProcessDirective(DirectivePosition
+                { directive.end.front()
+                , { directive.end.begin() + 1, directive.end.end() }
+                });
+        }
+    }
+};
+
+/// Record directive positions
+template <typename ContextT, typename TokenT>
+bool CustomDirectivesHooks::found_directive(ContextT const &ctx, TokenT const &directive)
+{
+    bool skip = false;
+    auto current_position = directive.get_position();
+    auto pos = PositionType
+        { CppFile::CountType(current_position.get_line())
+        , CppFile::CountType(current_position.get_column())
+        };
+    CppFile::Context& derivedContext = const_cast<CppFile::Context&>(ctx.derived());
+    auto& directiveStack = derivedContext.directiveStack;
+    switch (directive)
+    {
+    case boost::wave::T_PP_IF:
+    case boost::wave::T_PP_IFDEF:
+    case boost::wave::T_PP_IFNDEF:
+        directiveStack.push_back(DirectivePosition{ directive, pos });
+        break;
+    case boost::wave::T_PP_ELSE:
+        if (directiveStack.empty())
+        {
+            LOG4CXX_WARN(log_s, "Missing #if"
+                << " at " << ctx.get_current_filename()
+                << '(' << current_position.get_line()
+                << ',' << current_position.get_column() << ')'
+                );
+            break;
+        }
+        LOG4CXX_TRACE(log_s, "else " << " start@ "
+            << (directiveStack.back().end.empty()
+            ? directiveStack.back().start.pos.first
+            : directiveStack.back().end.back().pos.first
+            ));
+        directiveStack.back().end.push_back(ConditionPosition{ directive, pos });
+        break;
+    case boost::wave::T_PP_ELIF:
+        if (directiveStack.empty())
+        {
+            LOG4CXX_WARN(log_s, "Missing #if"
+                << " at " << ctx.get_current_filename()
+                << '(' << current_position.get_line()
+                << ',' << current_position.get_column() << ')'
+                );
+            break;
+        }
+        if (directiveStack.back().end.empty())
+            LOG4CXX_TRACE(log_s, "elif[0]" << " start@ " << directiveStack.back().start.pos.first);
+        else
+        {
+            LOG4CXX_TRACE(log_s, "elif[" << directiveStack.back().end.size() << ']'
+                << " start@ " << directiveStack.back().end.back().pos.first
+                );
+        }
+        directiveStack.back().end.push_back(ConditionPosition{ directive, pos });
+        break;
+    case boost::wave::T_PP_ENDIF:
+        if (directiveStack.empty())
+        {
+            LOG4CXX_WARN(log_s, "Missing #if"
+                << " at " << ctx.get_current_filename()
+                << '(' << current_position.get_line()
+                << ',' << current_position.get_column() << ')'
+                );
+            break;
+        }
+        LOG4CXX_TRACE(log_s, "endif" << " start@ "
+            << (directiveStack.back().end.empty()
+            ? directiveStack.back().start.pos.first
+            : directiveStack.back().end.back().pos.first
+            ));
+        directiveStack.back().end.push_back(ConditionPosition{ directive, pos });
+        derivedContext.ProcessDirective(directiveStack.back());
+        directiveStack.pop_back();
+        break;
+    default:
+        LOG4CXX_TRACE(log_s, "directive " << directive.get_value());
+        skip = true;
+        break;
+    }
+    return skip;
+}
+
+template <typename ContextT, typename TokenT, typename ContainerT>
+bool CustomDirectivesHooks::evaluated_conditional_expression
+    ( ContextT const& ctx
+    , TokenT const& directive
+    , ContainerT const& expression
+    , bool expression_value
+    )
+{
+    LOG4CXX_TRACE(log_s, "directive " << directive.get_value()
+        << " conditional_expression {" << boost::wave::util::impl::as_string(expression) << '}'
+        << " value " << expression_value
+        );
+
+    auto current_position = directive.get_position();
+    CppFile::Context& derivedContext = const_cast<CppFile::Context&>(ctx.derived());
+    auto& directiveStack = derivedContext.directiveStack;
+    if (directiveStack.empty())
+    {
+        LOG4CXX_WARN(log_s, "Missing #if"
+            << " at " << ctx.get_current_filename()
+            << '(' << current_position.get_line()
+            << ',' << current_position.get_column() << ')'
+            );
+        return false;
+    }
+    auto& conditionData = directiveStack.back().end.empty()
+        ? directiveStack.back().start
+        : directiveStack.back().end.back();
+    if (derivedContext.IsResolved(expression, &conditionData.pos.second))
+    {
+        conditionData.resolvedValue
+            = boost::wave::T_PP_IFNDEF == directive
+            ? !expression_value
+            : expression_value;
+    }
+    return false; // ok to continue, do not re-evaluate expression
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -363,7 +413,7 @@ CppFile::GetIdentifierCount(const StringType& name) const -> CountType
     CountType result = 0;
     auto pItem = m_identiferPositions.find(name);
     if (m_identiferPositions.end() != pItem)
-        result = pItem->second.size();
+        result = static_cast<CountType>(pItem->second.size());
     return result;
 }
 
@@ -496,34 +546,35 @@ CppFile::LoadFile(const PathType& path, const StringStore& definitions)
         ctx.set_language(boost::wave::enable_preserve_comments(ctx.get_language()));
         for (auto& item : definitions)
             ctx.add_macro_definition(item, true);
-        
+
         std::vector<PositionType> parenStack;
         CppFile::Context::iterator_type first = ctx.begin();
         CppFile::Context::iterator_type last = ctx.end();
         while (first != last)
         {
-            LOG4CXX_TRACE(log_s, first);
-            auto tokenId = *first;
+            boost::wave::token_id token = *first;
+            BoostWaveToken item{ token, first->get_value(), first->get_position() };
+            LOG4CXX_TRACE(log_s, item);
             current_position = first->get_position();
             m_processed = PositionType
                 { CountType(current_position.get_line())
                 , CountType(current_position.get_column())
                 };
-            if (boost::wave::T_LEFTPAREN == tokenId)
+            if (boost::wave::T_LEFTPAREN == token)
                 parenStack.push_back(m_processed);
-            else if (boost::wave::T_RIGHTPAREN == tokenId && !parenStack.empty())
+            else if (boost::wave::T_RIGHTPAREN == token && !parenStack.empty())
             {
                 LOG4CXX_TRACE(log_s, "LeftParen " << parenStack.back());
                 m_parenMate[m_processed] = parenStack.back();
                 m_parenMate[parenStack.back()] = m_processed;
                 parenStack.pop_back();
             }
-            else if (boost::wave::T_IDENTIFIER == tokenId)
+            else if (boost::wave::T_IDENTIFIER == token)
             {
                 StringType identifier = first->get_value().c_str();
                 m_identiferPositions[identifier].push_back(m_processed);
             }
-            else if (boost::wave::T_UNKNOWN == tokenId)
+            else if (boost::wave::T_UNKNOWN == token)
             {
                 LOG4CXX_WARN(log_s, "Unknown token (" << CStringRef<BOOST_WAVE_STRINGTYPE>(first->get_value()) << ')'
                     << " at " << path
@@ -531,9 +582,9 @@ CppFile::LoadFile(const PathType& path, const StringStore& definitions)
                     << ',' << current_position.get_column() << ')'
                     );
             }
-            if (boost::wave::T_CCOMMENT == tokenId)
+            if (boost::wave::T_CCOMMENT == token)
                 m_processed.line += boost::wave::context_policies::util::ccomment_count_newlines(*first);
-            m_tokenPositions[m_processed] = tokenId;
+            m_tokenPositions[m_processed] = token;
             ++first;
         }
         ok = true;
@@ -637,7 +688,7 @@ CppFile::SetLineIndex()
         size_t eol = m_content.find('\n', m_lineIndex.back());
         if (m_content.npos == eol)
             break;
-        m_lineIndex.push_back(eol + 1);
+        m_lineIndex.push_back(static_cast<CountType>(eol + 1));
     }
     LOG4CXX_DEBUG(log_s, "SetLineIndex:" << " contentSize " << m_content.size() << " lineCount " << m_lineIndex.size());
 }

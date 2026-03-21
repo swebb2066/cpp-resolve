@@ -19,7 +19,7 @@ if(WIN32)
     VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/resources
   )
   set_target_properties(cpp_resolve_tests PROPERTIES
-    VS_DEBUGGER_COMMAND_ARGUMENTS "--run_test=*/*/* --log_level=error --report_level=no"
+    VS_DEBUGGER_COMMAND_ARGUMENTS "--log_level=error --report_level=no"
   )
   set_target_properties(cpp_resolve_tests PROPERTIES
     VS_DEBUGGER_ENVIRONMENT "PATH=$<JOIN:${path_var},\;>"
