@@ -11,8 +11,8 @@ class CppFile
 public: // Types
     using PathType = boost::filesystem::path;
     using StringType = std::string;
-	using StringStore = std::vector<StringType>;
-	using CountType = unsigned int;
+    using StringStore = std::vector<StringType>;
+    using CountType = unsigned int;
 
     class FunctionIterator;
     struct PositionType
@@ -33,7 +33,7 @@ public: // Types
 protected: // Types
     using PositionStore = std::vector<PositionType>;
     using StringPositionMap = std::map<StringType, PositionStore>;
-	using IndexMap = std::map<PositionType, PositionType>;
+    using IndexMap = std::map<PositionType, PositionType>;
     enum EditType { Delete, Insert, Modify };
     struct UpdateData
     {
@@ -49,6 +49,7 @@ protected: // Types
     using IndexedToken = std::map<PositionType, TokenId>;
 
 private: // Attributes
+    PathType m_path;
     StringType m_content;
     IndexStore m_lineIndex;
     PositionType m_processed;
@@ -56,22 +57,22 @@ private: // Attributes
     IndexMap m_parenMate;
     StringPositionMap m_identiferPositions;
     UpdateMap m_updates;
-	CountType m_deletedLineCount{ 0 };
+    CountType m_deletedLineCount{ 0 };
 
 public: // ...structors
-    CppFile() {}
+    CppFile() : m_path{ "<Unknown>" } {}
     CppFile(const PathType& path, const StringStore& definitions = {})
     { LoadFile(path, definitions); }
 
 public: // Accessors
-	const StringType& GetContent() const { return m_content; }
+    const StringType& GetContent() const { return m_content; }
     CountType GetIdentifierCount(const StringType& name) const;
     CountType GetFunctionCount(const StringType& name) const;
-	CountType GetUpdateCount(CountType* deletedLineCount = 0) const;
+    CountType GetUpdateCount(CountType* deletedLineCount = 0) const;
     bool IsValid() const;
 
 public: // Modifiers
-	void Load(std::istream& is);
+    bool Load(std::istream& is, const StringStore& definitions = {});
     bool LoadFile(const PathType& path, const StringStore& definitions = {});
     bool StoreFile(const PathType& path);
     void Store(std::ostream& os);
@@ -80,7 +81,7 @@ protected: // Support methods
     void AppendText(const PositionType& lineCol, const StringType& text);
     void InsertText(const PositionType& lineCol, const StringType& text);
     void ModifyText(const PositionType& lineCol, const StringType& oldText, const StringType& newText);
-	void RemoveLines(CountType first, CountType last = 0);
+    void RemoveLines(CountType first, CountType last = 0);
     size_t GetContentIndex(const PositionType& index) const;
     boost::wave::token_id GetNonWhitespaceTokenAfter(const PositionType& index, PositionType* resultIndex = 0) const;
     boost::wave::token_id GetNonWhitespaceTokenBefore(const PositionType& index, PositionType* resultIndex = 0) const;

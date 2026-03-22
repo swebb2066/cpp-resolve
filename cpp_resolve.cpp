@@ -1,4 +1,3 @@
-#include <log4cxx/propertyconfigurator.h>
 #include <boost/program_options.hpp>
 #include "util/Logger.h"
 #include "util/CppFile.h"
@@ -61,8 +60,10 @@ int main( int argc, char* argv[] )
                 << GetOptionDescription() << "\n";
         else
         {
-            log4cxx::PropertyConfigurator::configure("cpp_resolve.properties");
             StringStore itemStore = vm["file-or-dir"].as<StringStore>();
+            StringStore defineStore;
+            if (vm.count("define"))
+                defineStore = vm["define"].as<StringStore>();
             StringStore extStore = {".cpp", ".cxx", ".hpp", ".h"};
             if (vm.count("ext"))
             {
@@ -73,7 +74,7 @@ int main( int argc, char* argv[] )
             DirectoryEntryIterator fileIter(itemStore.begin(), itemStore.end(), selector);
             for (fileIter.Start(); !fileIter.Off(); fileIter.Forth())
             {
-                CppFile file(fileIter.Item(), vm["define"].as<StringStore>());
+                CppFile file(fileIter.Item(), defineStore);
 				CppFile::CountType deletedLineCount{ 0 };
                 if (!file.IsValid())
                     std::cerr << "Skipping invalid " << fileIter.Item() << "\n";

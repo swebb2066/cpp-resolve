@@ -4,6 +4,7 @@
 #ifdef __has_include                           // Check if __has_include is present
 #  if __has_include(<boost/optional.hpp>)    // Try with an external library
 #    include <boost/optional.hpp>
+#    include <boost/optional/optional_io.hpp>
 namespace Util { template< class T > using Optional = boost::optional<T>; }
 #define UTIL_HAS_STD_OPTIONAL 1
 #  elif __has_include(<optional>)                // Check for a standard version
