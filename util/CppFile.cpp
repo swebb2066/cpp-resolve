@@ -113,7 +113,7 @@ operator<<(std::ostream& stream, const BoostWaveToken& item)
     stream << boost::wave::get_token_name(item.id)
         << "(#" << BASEID_FROM_TOKEN(item.id) << ')';
 
-    stream << ": >" << CStringRef<TokenType::string_type>(item.name) << '<';
+    stream << ": >|" << CStringRef<TokenType::string_type>(item.name) << "|<";
     stream << " (" << item.pos.get_line()
         << ',' << item.pos.get_column()
         << ')';
@@ -297,10 +297,53 @@ public: // ...structors
         }
         else if (!directive.end.empty()) // !directive.start.resolvedValue
         {
-             ProcessDirective(DirectivePosition
-                { directive.end.front()
-                , { directive.end.begin() + 1, directive.end.end() }
-                });
+            auto pItem = directive.end.begin();
+            auto& start = *pItem++;
+            LOG4CXX_DEBUG(log_s, start.token.get_value()
+                << " @ " << start.pos.first
+                << " to " << start.pos.second
+                << " resolvedValue? " << start.resolvedValue
+                );
+            if (start.resolvedValue && *start.resolvedValue)
+            {
+                // Change #elif to #else and delete subsequent alternates
+                this->parent->ReplaceLines(start.pos.first.line, start.pos.second.line, "#else");
+                if (2 < directive.end.size())
+                {
+                    auto firstDeletedLine = directive.end[1].pos.first.line;
+                    auto lastDeletedLine = directive.end.back().pos.first.line - 1;
+                    this->parent->RemoveLines(firstDeletedLine, lastDeletedLine);
+                }
+            }
+            else if (start.resolvedValue && !*start.resolvedValue)
+            {
+                // delete until a resolved to 'true' #elif, an unresolved #elif, upto the #else or #endif
+                auto lastDeletedLine = start.pos.first.line;
+                while (pItem != directive.end.end())
+                {
+                    auto& item = *pItem++;
+                    LOG4CXX_DEBUG(log_s, item.token.get_value()
+                        << " @ " << item.pos.first
+                        << " to " << item.pos.second
+                        << " alternateResolvedValue? " << item.resolvedValue
+                        );
+                    lastDeletedLine = item.pos.first.line - 1;
+                    if ((item.resolvedValue && *item.resolvedValue) ||
+                        (!item.resolvedValue && item.token == boost::wave::T_PP_ELIF))
+                    {
+                        StringType oldText{ item.token.get_value().begin(), item.token.get_value().end() };
+                        this->parent->ModifyText(item.pos.first, oldText, "#if");
+                        break;
+                    }
+                    else if (item.token == boost::wave::T_PP_ELSE ||
+                             item.token == boost::wave::T_PP_ENDIF)
+                    {
+                        lastDeletedLine = item.pos.first.line - 1;
+                        break;
+                    }
+                }
+                this->parent->RemoveLines(start.pos.first.line, lastDeletedLine);
+            }
         }
     }
 };
@@ -326,7 +369,7 @@ void CustomDirectivesHooks::defined_macro
 template <typename ContextT, typename TokenT>
 void CustomDirectivesHooks::skipped_token(ContextT const& ctx, TokenT const& token)
 {
-    LOG4CXX_TRACE(log_s, "skipped >" << CStringRef<BOOST_WAVE_STRINGTYPE>(token.get_value()) << '<');
+    LOG4CXX_TRACE(log_s, "skipped >|" << CStringRef<BOOST_WAVE_STRINGTYPE>(token.get_value()) << "|<");
     switch (token)
     {
     case boost::wave::T_PP_IF:
@@ -336,7 +379,7 @@ void CustomDirectivesHooks::skipped_token(ContextT const& ctx, TokenT const& tok
     case boost::wave::T_PP_ELIF:
     case boost::wave::T_PP_ENDIF:
         CppFile::Context& derivedContext = const_cast<CppFile::Context&>(ctx.derived());
-        if (token != derivedContext.lastDirective)
+        if (!(token.get_position() == derivedContext.lastDirective.get_position()))
             found_directive(ctx, token);
         break;
     }
@@ -346,9 +389,12 @@ void CustomDirectivesHooks::skipped_token(ContextT const& ctx, TokenT const& tok
 template <typename ContextT, typename TokenT>
 bool CustomDirectivesHooks::found_directive(ContextT const &ctx, TokenT const &directive)
 {
-    LOG4CXX_TRACE(log_s, "directive " << directive.get_value());
-    bool skip = false;
     auto current_position = directive.get_position();
+    LOG4CXX_TRACE(log_s, "found_directive"
+        << '(' << current_position.get_line() << ')'
+        << ' ' << directive.get_value()
+        );
+    bool skip = false;
     auto pos = PositionType
         { CppFile::CountType(current_position.get_line())
         , CppFile::CountType(current_position.get_column())
@@ -373,11 +419,7 @@ bool CustomDirectivesHooks::found_directive(ContextT const &ctx, TokenT const &d
                 );
             break;
         }
-        LOG4CXX_TRACE(log_s, "else " << " start@ "
-            << (directiveStack.back().end.empty()
-            ? directiveStack.back().start.pos.first
-            : directiveStack.back().end.back().pos.first
-            ));
+        LOG4CXX_TRACE(log_s, "else " << " start@ " << directiveStack.back().start.pos.first);
         directiveStack.back().end.push_back(ConditionPosition{ directive, pos });
         derivedContext.lastDirective = directive;
         break;
@@ -412,11 +454,7 @@ bool CustomDirectivesHooks::found_directive(ContextT const &ctx, TokenT const &d
                 );
             break;
         }
-        LOG4CXX_TRACE(log_s, "endif" << " start@ "
-            << (directiveStack.back().end.empty()
-            ? directiveStack.back().start.pos.first
-            : directiveStack.back().end.back().pos.first
-            ));
+        LOG4CXX_TRACE(log_s, "endif" << " start@ " << directiveStack.back().start.pos.first);
         directiveStack.back().end.push_back(ConditionPosition{ directive, pos });
         derivedContext.ProcessDirective(directiveStack.back());
         directiveStack.pop_back();
@@ -438,7 +476,7 @@ bool CustomDirectivesHooks::evaluated_conditional_expression
     )
 {
     LOG4CXX_TRACE(log_s, "directive " << directive.get_value()
-        << " conditional_expression >" << boost::wave::util::impl::as_string(expression) << '<'
+        << " conditional_expression >|" << boost::wave::util::impl::as_string(expression) << "|<"
         << " value " << expression_value
         );
 
@@ -761,6 +799,25 @@ CppFile::RemoveLines(CountType first, CountType last)
     while (0 < m_updates.count(key))
         --key.second;
     m_updates[key] = skipData;
+    m_deletedLineCount += first < last ? (last - first + 1) : 1;
+}
+
+/// Replace the lines from (1-based) \c first to \c last with \c newText
+    void
+CppFile::ReplaceLines(CountType first, CountType last, const StringType& newText)
+{
+    LOG4CXX_DEBUG(log_s, "ReplaceLines:" << " first " << first << " last " << last << " newText " << newText);
+    PositionType lineCol{first, 1};
+    size_t startIndex = GetContentIndex(lineCol);
+    size_t resumeIndex = first < last
+        ? GetContentIndex(PositionType{last + 1, 1})
+        : GetContentIndex(PositionType{first + 1, 1});
+    --resumeIndex; // At the end of the previous line
+    UpdateData changeData = {startIndex, Modify, newText, resumeIndex};
+    UpdateKey key(lineCol, 0);
+    while (0 < m_updates.count(key))
+        --key.second;
+    m_updates[key] = changeData;
     m_deletedLineCount += first < last ? (last - first + 1) : 1;
 }
 

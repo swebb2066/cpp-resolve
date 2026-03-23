@@ -82,6 +82,7 @@ protected: // Support methods
     void InsertText(const PositionType& lineCol, const StringType& text);
     void ModifyText(const PositionType& lineCol, const StringType& oldText, const StringType& newText);
     void RemoveLines(CountType first, CountType last = 0);
+    void ReplaceLines(CountType first, CountType last, const StringType& newText);
     size_t GetContentIndex(const PositionType& index) const;
     boost::wave::token_id GetNonWhitespaceTokenAfter(const PositionType& index, PositionType* resultIndex = 0) const;
     boost::wave::token_id GetNonWhitespaceTokenBefore(const PositionType& index, PositionType* resultIndex = 0) const;
