@@ -191,7 +191,6 @@ public: // Attributes
     CppFile* parent{ nullptr };
     std::vector<DirectivePosition> directiveStack;
     TokenType lastDirective;
-    StringStore definedSymbols;
 
 public: // ...structors
     Context(const StringType& content, const StringType& path)
@@ -208,23 +207,16 @@ public: // ...structors
         this->parent = parent;
         for (auto& item : definitions)
         {
-            auto pos = item.find('=');
-            if (item.npos == pos)
-                definedSymbols.push_back(item);
-            else
-                definedSymbols.push_back(item.substr(0, pos));
+            add_macro_definition(item);
         }
     }
 
     template <typename ContainerT>
     bool IsResolved(ContainerT const& expression, PositionType* endPos) const
     {
-        bool result = false;
+        int identifierCount{ 0 }, definedCount{ 0 };
         for (auto& item : expression)
         {
-            StringType symbol(item.get_value().c_str());
-            if (this->definedSymbols.end() != std::find(this->definedSymbols.begin(), this->definedSymbols.end(), symbol))
-                result = true;
             if (endPos)
             {
                 *endPos = PositionType
@@ -232,8 +224,16 @@ public: // ...structors
                     , CountType(item.get_position().get_column() + item.get_value().size())
                     };
             }
+            if (item == boost::wave::T_IDENTIFIER && item.get_value() != "defined")
+            {
+                ++identifierCount;
+                auto macroFound = is_defined_macro(item.get_value());
+                LOG4CXX_TRACE(log_s, "IsResolved: " << item.get_value() << "? " << macroFound);
+                definedCount += macroFound;
+            }
         }
-        return result;
+        LOG4CXX_DEBUG(log_s, "IsResolved? " << (identifierCount == definedCount));
+        return definedCount == identifierCount;
     }
 
     // Delete a #if directive line that:

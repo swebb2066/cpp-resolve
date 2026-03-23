@@ -47,8 +47,8 @@ BOOST_AUTO_TEST_CASE( compound_elif_directive_test )
 	};
     BOOST_REQUIRE(file.LoadFile("log4cxx/log4cxx.h", definitions));
     CppFile::CountType deletedLineCount;
-    BOOST_CHECK_EQUAL(file.GetUpdateCount(&deletedLineCount), 2);
-    BOOST_CHECK_EQUAL(deletedLineCount, 3);
+    BOOST_CHECK_EQUAL(file.GetUpdateCount(&deletedLineCount), 3);
+    BOOST_CHECK_EQUAL(deletedLineCount, 6);
 
     std::stringstream ss;
     file.Store(ss);
