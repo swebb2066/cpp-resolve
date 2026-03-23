@@ -38,7 +38,7 @@ struct ConditionPosition
     ConditionPosition() {}
     ConditionPosition(const TokenType& id, const PositionType& start)
         : token{ id }
-        , pos{ start, {} }
+        , pos{ start, start }
         {}
 };
 struct DirectivePosition
@@ -106,7 +106,7 @@ struct BoostWaveToken
     position_type              pos;
 };
 
-/// Put attributes pointed to by \c pItem onto \c stream
+/// Put attributes of \c item onto \c stream
     std::ostream&
 operator<<(std::ostream& stream, const BoostWaveToken& item)
 {
@@ -190,6 +190,7 @@ public: // Types
 public: // Attributes
     CppFile* parent{ nullptr };
     std::vector<DirectivePosition> directiveStack;
+    TokenType lastDirective;
     StringStore definedSymbols;
 
 public: // ...structors
@@ -245,7 +246,7 @@ public: // ...structors
     // - the previous #if block is not resolved
     void ProcessDirective(const DirectivePosition& directive)
     {
-        LOG4CXX_DEBUG(log_s, directive.start.token.get_value()
+        LOG4CXX_DEBUG(log_s, "ProcessDirective: " << directive.start.token.get_value()
             << " @ " << directive.start.pos.first
             << " to " << directive.start.pos.second
             << " startResolvedValue? " << directive.start.resolvedValue
@@ -260,6 +261,7 @@ public: // ...structors
         }
         else if (directive.start.resolvedValue && !*directive.start.resolvedValue)
         {
+            bool deleteEndIf{ false };
             // delete until a resolved to 'true' #elif, an unresolved #elif, upto and including the #else or #endif
             auto lastDeletedLine = directive.start.pos.first.line;
             for (auto& item : directive.end)
@@ -277,14 +279,21 @@ public: // ...structors
                     this->parent->ModifyText(item.pos.first, oldText, "#if");
                     break;
                 }
-                else if (item.token == boost::wave::T_PP_ELSE ||
-                         item.token == boost::wave::T_PP_ENDIF)
+                else if (item.token == boost::wave::T_PP_ELSE)
+                {
+                    lastDeletedLine = item.pos.first.line;
+                    deleteEndIf = true;
+                    break;
+                }
+                else if (item.token == boost::wave::T_PP_ENDIF)
                 {
                     lastDeletedLine = item.pos.first.line;
                     break;
                 }
             }
             this->parent->RemoveLines(directive.start.pos.first.line, lastDeletedLine);
+            if (deleteEndIf)
+                this->parent->RemoveLines(directive.end.back().pos.first.line);
         }
         else if (!directive.end.empty()) // !directive.start.resolvedValue
         {
@@ -327,7 +336,7 @@ void CustomDirectivesHooks::skipped_token(ContextT const& ctx, TokenT const& tok
     case boost::wave::T_PP_ELIF:
     case boost::wave::T_PP_ENDIF:
         CppFile::Context& derivedContext = const_cast<CppFile::Context&>(ctx.derived());
-        if (!derivedContext.get_if_block_status())
+        if (token != derivedContext.lastDirective)
             found_directive(ctx, token);
         break;
     }
@@ -352,6 +361,7 @@ bool CustomDirectivesHooks::found_directive(ContextT const &ctx, TokenT const &d
     case boost::wave::T_PP_IFDEF:
     case boost::wave::T_PP_IFNDEF:
         directiveStack.push_back(DirectivePosition{ directive, pos });
+        derivedContext.lastDirective = directive;
         break;
     case boost::wave::T_PP_ELSE:
         if (directiveStack.empty())
@@ -369,6 +379,7 @@ bool CustomDirectivesHooks::found_directive(ContextT const &ctx, TokenT const &d
             : directiveStack.back().end.back().pos.first
             ));
         directiveStack.back().end.push_back(ConditionPosition{ directive, pos });
+        derivedContext.lastDirective = directive;
         break;
     case boost::wave::T_PP_ELIF:
         if (directiveStack.empty())
@@ -389,6 +400,7 @@ bool CustomDirectivesHooks::found_directive(ContextT const &ctx, TokenT const &d
                 );
         }
         directiveStack.back().end.push_back(ConditionPosition{ directive, pos });
+        derivedContext.lastDirective = directive;
         break;
     case boost::wave::T_PP_ENDIF:
         if (directiveStack.empty())
@@ -408,6 +420,7 @@ bool CustomDirectivesHooks::found_directive(ContextT const &ctx, TokenT const &d
         directiveStack.back().end.push_back(ConditionPosition{ directive, pos });
         derivedContext.ProcessDirective(directiveStack.back());
         directiveStack.pop_back();
+        derivedContext.lastDirective = directive;
         break;
     default:
         skip = true;

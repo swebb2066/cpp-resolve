@@ -26,7 +26,9 @@ BOOST_AUTO_TEST_CASE( ifelse_directive_test )
 	{ "LOG4CXX_ABI_VERSION=16"
 	};
     BOOST_REQUIRE(file.LoadFile("log4cxx/hierarchy.h", definitions));
-    BOOST_CHECK_EQUAL(file.GetUpdateCount(), 3);
+    CppFile::CountType deletedLineCount;
+    BOOST_CHECK_EQUAL(file.GetUpdateCount(&deletedLineCount), 7);
+    BOOST_CHECK_EQUAL(deletedLineCount, 25);
 
     std::stringstream ss;
     file.Store(ss);
