@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 //  Include Wave itself
 #include <boost/wave.hpp>
+#include <boost/wave/language_support.hpp>
 
 ///////////////////////////////////////////////////////////////////////////////
 // Include the lexer stuff
@@ -204,6 +205,7 @@ public: // ...structors
         )
         : CppFile::Context(parent->GetContent(), path.string())
     {
+        set_language(boost::wave::enable_long_long(get_language()));
         this->parent = parent;
         for (auto& item : definitions)
         {

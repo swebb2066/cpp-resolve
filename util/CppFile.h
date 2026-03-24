@@ -1,6 +1,6 @@
 #if !defined(CPP_FILE_INCLUDED)
-#include "Logger.h"
 #define CPP_FILE_INCLUDED
+#include "Logger.h"
 #include <boost/filesystem.hpp>
 #include <boost/wave/token_ids.hpp>
 #include <boost/wave/wave_config.hpp>

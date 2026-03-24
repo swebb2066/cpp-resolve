@@ -35,7 +35,7 @@ add_subdirectory(util)
 add_executable(cpp_resolve
   cpp_resolve.cpp 
 )
-target_compile_definitions(cpp_resolve PRIVATE $<TARGET_PROPERTY:log4cxx,INTERFACE_COMPILE_DEFINITIONS> ${Boost_COMPILE_DEFINITIONS} BOOST_WAVE_STATIC_LINK)
+target_compile_definitions(cpp_resolve PRIVATE ${Boost_COMPILE_DEFINITIONS} BOOST_WAVE_STATIC_LINK BOOST_WAVE_SUPPORT_LONGLONG_INTEGER_LITERALS=1)
 target_include_directories(cpp_resolve PRIVATE $<TARGET_PROPERTY:log4cxx,INTERFACE_INCLUDE_DIRECTORIES> ${Boost_INCLUDE_DIRS})
 target_link_libraries(cpp_resolve PRIVATE Util log4cxx ${Boost_LIBRARIES})
 
@@ -53,8 +53,6 @@ install(CODE [[
     POST_EXCLUDE_REGEXES ^/lib ^/usr/lib ^/usr/local/lib
     EXECUTABLES cpp_resolve
     )
-  #message("cpp_resolve_dependencies=${cpp_resolve_dependencies}")
-  #message("cpp_resolve_unresoved=${cpp_resolve_unresolved}")
   file(INSTALL ${cpp_resolve_dependencies}
     DESTINATION "${CMAKE_INSTALL_PREFIX}/bin"
     FOLLOW_SYMLINK_CHAIN
@@ -62,5 +60,9 @@ install(CODE [[
 ]])
 install(TARGETS cpp_resolve
   RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+)
+install(FILES
+  "${CMAKE_CURRENT_SOURCE_DIR}/resources/cpp_resolve.properties"
+  DESTINATION   ${CMAKE_INSTALL_PREFIX}/bin
 )
 

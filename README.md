@@ -7,7 +7,7 @@ deleting all but one branch of conditionally compiled preprocessor directives.
 Only those conditional compilation expressions in which
 all identifiers are resolved are modified.
 
-For example, ```cpp-resovle -d LOG4CXX_ABI_VERSION=16 src``` may result in the following diff report
+For example, ```cpp_resovle -d LOG4CXX_ABI_VERSION=16 src``` may result in the following diff report
 leaving a single line of code in place of the preprocessor code block:
 ```
 @@ -255,11 +234,7 @@ class LOG4CXX_EXPORT Hierarchy : public spi::LoggerRepository

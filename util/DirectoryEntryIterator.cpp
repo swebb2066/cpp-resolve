@@ -57,7 +57,8 @@ DirectoryEntryIterator::StartDir(const fs::path& dir)
     void
 DirectoryEntryIterator::Forth()
 {
-    ++m_dirItem;
+    if (!OffDir())
+        ++m_dirItem;
     if (!SetItem())
     {
         ++m_pathItem;
