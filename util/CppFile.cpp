@@ -818,7 +818,8 @@ CppFile::ReplaceLines(CountType first, CountType last, const StringType& newText
     while (0 < m_updates.count(key))
         --key.second;
     m_updates[key] = changeData;
-    m_deletedLineCount += first < last ? (last - first + 1) : 1;
+    if (first < last)
+        m_deletedLineCount += last - first;
 }
 
 /// Initialize m_lineIndex

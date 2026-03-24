@@ -68,6 +68,7 @@ public: // Accessors
     const StringType& GetContent() const { return m_content; }
     CountType GetIdentifierCount(const StringType& name) const;
     CountType GetFunctionCount(const StringType& name) const;
+    CountType GetLineCount() const { return static_cast<CountType>(m_lineIndex.size()); }
     CountType GetUpdateCount(CountType* deletedLineCount = 0) const;
     bool IsValid() const;
 
