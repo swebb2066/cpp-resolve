@@ -46,12 +46,13 @@ endif()
 
 # Installation
 include(GNUInstallDirs)
+set(TARGET_EXECUTABLES "$<TARGET_FILE:cpp_resolve>" )
 install(CODE [[
   file(GET_RUNTIME_DEPENDENCIES
     RESOLVED_DEPENDENCIES_VAR cpp_resolve_dependencies
     UNRESOLVED_DEPENDENCIES_VAR cpp_resolve_unresolved
     POST_EXCLUDE_REGEXES ^/lib ^/usr/lib ^/usr/local/lib
-    EXECUTABLES cpp_resolve
+    EXECUTABLES ${TARGET_EXECUTABLES}
     )
   file(INSTALL ${cpp_resolve_dependencies}
     DESTINATION "${CMAKE_INSTALL_PREFIX}/bin"
@@ -61,8 +62,17 @@ install(CODE [[
 install(TARGETS cpp_resolve
   RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
 )
-install(FILES
-  "${CMAKE_CURRENT_SOURCE_DIR}/resources/cpp_resolve.properties"
+if(MSVC)
+  get_target_property(LOG4CXX_RUNTIME_LIBRARY log4cxx IMPORTED_LOCATION_RELEASE)
+  INSTALL(FILES "${LOG4CXX_RUNTIME_LIBRARY}"
+          DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+  )
+  INSTALL(FILES $<TARGET_PDB_FILE:cpp_resolve>
+          DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+          CONFIGURATIONS RelWithDebInfo Debug
+  )
+endif(MSVC)
+install(FILES  "${CMAKE_CURRENT_SOURCE_DIR}/resources/cpp_resolve.properties"
   DESTINATION   ${CMAKE_INSTALL_PREFIX}/bin
 )
 
