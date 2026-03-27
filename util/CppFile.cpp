@@ -297,9 +297,9 @@ public: // ...structors
             if (deleteEndIf)
                 this->parent->RemoveLines(directive.end.back().pos.first.line);
         }
-        else if (!directive.end.empty()) // !directive.start.resolvedValue
+        // #if directive is not resolved
+        else for (auto pItem = directive.end.begin(); pItem != directive.end.end(); )
         {
-            auto pItem = directive.end.begin();
             auto& start = *pItem++;
             LOG4CXX_DEBUG(log_s, start.token.get_value()
                 << " @ " << start.pos.first
@@ -310,12 +310,13 @@ public: // ...structors
             {
                 // Change #elif to #else and delete subsequent alternates
                 this->parent->ReplaceLines(start.pos.first.line, start.pos.second.line, "#else");
-                if (2 < directive.end.size())
+                if (pItem != directive.end.end())
                 {
-                    auto firstDeletedLine = directive.end[1].pos.first.line;
+                    auto firstDeletedLine = pItem->pos.first.line;
                     auto lastDeletedLine = directive.end.back().pos.first.line - 1;
                     this->parent->RemoveLines(firstDeletedLine, lastDeletedLine);
                 }
+                pItem = directive.end.end();
             }
             else if (start.resolvedValue && !*start.resolvedValue)
             {
@@ -330,21 +331,23 @@ public: // ...structors
                         << " alternateResolvedValue? " << item.resolvedValue
                         );
                     lastDeletedLine = item.pos.first.line - 1;
-                    if ((item.resolvedValue && *item.resolvedValue) ||
-                        (!item.resolvedValue && item.token == boost::wave::T_PP_ELIF))
+                    if (!item.resolvedValue)
+                        break;
+                    else if (*item.resolvedValue)
                     {
                         StringType oldText{ item.token.get_value().begin(), item.token.get_value().end() };
-                        this->parent->ModifyText(item.pos.first, oldText, "#if");
-                        break;
-                    }
-                    else if (item.token == boost::wave::T_PP_ELSE ||
-                             item.token == boost::wave::T_PP_ENDIF)
-                    {
-                        lastDeletedLine = item.pos.first.line - 1;
+                        this->parent->ModifyText(item.pos.first, oldText, "#else");
+                        if (pItem != directive.end.end())
+                        {
+                            auto firstDeletedLine = pItem->pos.first.line;
+                            auto lastDeletedLine = directive.end.back().pos.first.line - 1;
+                            this->parent->RemoveLines(firstDeletedLine, lastDeletedLine);
+                        }
                         break;
                     }
                 }
                 this->parent->RemoveLines(start.pos.first.line, lastDeletedLine);
+                pItem = directive.end.end();
             }
         }
     }
