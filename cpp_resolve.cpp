@@ -50,6 +50,8 @@ int main( int argc, char* argv[] )
     bool ok = false;
     try
     {
+        using ArgFormatter = Util::SeparatedArray<char*, char>;
+        LOG4CXX_INFO(log_s, "Command: " << ArgFormatter( argv, argc, ' ', 0 ) );
         po::variables_map vm;
         processArgs(argc, argv, vm);
         bool changeFiles = 0 == vm.count("count");
@@ -80,14 +82,18 @@ int main( int argc, char* argv[] )
                     std::cerr << "Skipping invalid " << fileIter.Item() << "\n";
                  else if (0 < file.GetUpdateCount(&deletedLineCount))
                  {
+                    LOG4CXX_INFO(log_s, fileIter.Item().string()
+                        << ": " << deletedLineCount << " lines"
+                        << (changeFiles ? " removed" : " removable")
+                        );
                     if (changeFiles)
                         file.StoreFile(fileIter.Item());
-                     if (!quiet)
-                     {
+                    if (!quiet)
+                    {
                         std::cout << fileIter.Item().string()
-							<< ": " << deletedLineCount << " lines"
-							<< (changeFiles ? " removed" : " removable")
-							<< "\n";
+                            << ": " << deletedLineCount << " lines"
+                            << (changeFiles ? " removed" : " removable")
+                            << "\n";
                     }
                 }
             }
