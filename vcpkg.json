@@ -1,0 +1,9 @@
+{
+  "dependencies": [
+    "boost-program-options",
+    "boost-filesystem",
+    "boost-wave",
+    "boost-test",
+    "log4cxx"
+  ]
+}

@@ -98,7 +98,7 @@ DirectoryEntryIterator::SetItem()
     while (!OffDir())
     {
         bool skipDirectory = false;
-        if (!m_test || m_test->IsIncluded(m_dirItem.level(), m_dirItem->path(), skipDirectory))
+        if (!m_test || m_test->IsIncluded(m_dirItem.depth(), m_dirItem->path(), skipDirectory))
         {
             m_item = m_dirItem->path();
             return true;
@@ -107,7 +107,8 @@ DirectoryEntryIterator::SetItem()
             m_dirItem.pop();
         else
         {
-            m_dirItem.no_push(skipDirectory);
+            if (skipDirectory)
+                m_dirItem.disable_recursion_pending();
             ++m_dirItem;
         }
     }
