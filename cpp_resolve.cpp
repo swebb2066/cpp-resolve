@@ -19,6 +19,7 @@ GetOptionDescription()
         ("help,h", "produce help message")
         ("quiet,q", "do not print file names")
         ("count,c", "do not apply changes, list the number of lines to be removed from each file")
+        ("substitute,s", po::value<StringStore>(), "add to the list of identifier substitions")
         ("define,d", po::value<StringStore>(), "add to the list of macro definitions")
         ("ext,e", po::value<StringStore>(), "add to the list of checked file extensions: default [.cpp, .cxx, .hpp, .h]")
         ;
@@ -66,6 +67,9 @@ int main( int argc, char* argv[] )
             StringStore defineStore;
             if (vm.count("define"))
                 defineStore = vm["define"].as<StringStore>();
+            StringStore substitutionStore;
+            if (vm.count("substitute"))
+                substitutionStore = vm["substitute"].as<StringStore>();
             StringStore extStore = {".cpp", ".cxx", ".hpp", ".h"};
             if (vm.count("ext"))
             {
@@ -77,7 +81,16 @@ int main( int argc, char* argv[] )
             for (fileIter.Start(); !fileIter.Off(); fileIter.Forth())
             {
                 CppFile file(fileIter.Item(), defineStore);
-				CppFile::CountType deletedLineCount{ 0 };
+                for (auto& item : substitutionStore)
+                {
+                    auto assignIndex = item.find('=');
+                    auto identifier = item.substr(0, assignIndex);
+                    StringType identifierValue;
+                    if (item.npos != assignIndex)
+                        identifierValue = item.substr(assignIndex + 1);
+                    file.AddSubstitution(identifier, identifierValue);
+                }
+                CppFile::CountType deletedLineCount{ 0 };
                 if (!file.IsValid())
                     std::cerr << "Skipping invalid " << fileIter.Item() << "\n";
                  else if (0 < file.GetUpdateCount(&deletedLineCount))

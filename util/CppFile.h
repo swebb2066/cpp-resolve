@@ -47,9 +47,13 @@ protected: // Types
     using IndexStore = std::vector<int>;
     using TokenId = boost::wave::token_id;
     using IndexedToken = std::map<PositionType, TokenId>;
+    using StringMap = std::map<StringType, StringType>;
+
+private: // Properties
+    PathType m_path;
+    StringMap m_identiferNewName;
 
 private: // Attributes
-    PathType m_path;
     StringType m_content;
     IndexStore m_lineIndex;
     PositionType m_processed;
@@ -73,6 +77,7 @@ public: // Accessors
     bool IsValid() const;
 
 public: // Modifiers
+    void AddSubstitution(const StringType& identifier, const StringType& newValue);
     bool Load(std::istream& is, const StringStore& definitions = {});
     bool LoadFile(const PathType& path, const StringStore& definitions = {});
     bool StoreFile(const PathType& path);

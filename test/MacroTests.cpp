@@ -66,6 +66,24 @@ BOOST_AUTO_TEST_CASE( compound_elif_directive_test )
     BOOST_CHECK_EQUAL(processedFile.GetUpdateCount(), 0);
 }
 
+BOOST_AUTO_TEST_CASE( substitution_test )
+{
+    CppFile file;
+	file.AddSubstitution("LOG4CXX_NS", "nlog4cxx");
+    BOOST_REQUIRE(file.LoadFile("log4cxx/log4cxx.h"));
+    auto oldLineCount = file.GetLineCount();
+    CppFile::CountType deletedLineCount;
+    BOOST_CHECK_EQUAL(file.GetUpdateCount(&deletedLineCount), 2);
+
+    std::stringstream ss;
+    file.Store(ss);
+    CppFile processedFile;
+    BOOST_REQUIRE(processedFile.Load(ss));
+    BOOST_CHECK_EQUAL(processedFile.GetLineCount(), oldLineCount - deletedLineCount);
+    BOOST_CHECK(processedFile.IsValid());
+    BOOST_CHECK_EQUAL(processedFile.GetUpdateCount(), 0);
+}
+
 BOOST_AUTO_TEST_CASE( deeply_embedded_resolved_true_directive_test )
 {
     std::stringstream input;

@@ -513,6 +513,13 @@ bool CustomDirectivesHooks::evaluated_conditional_expression
 ///////////////////////////////////////////////////////////////////////////////
 //  CppFile implementation
 
+/// Replace all instance of \c identifier with \c newValue
+    void
+CppFile::AddSubstitution(const StringType& identifier, const StringType& newValue)
+{
+    m_identiferNewName[identifier] = newValue;
+}
+
 /// The index into \c m_content corresponding to (1-based) index.line and index.col
     auto
 CppFile::GetContentIndex(const PositionType& index) const -> size_t
@@ -670,14 +677,14 @@ CppFile::Load(std::istream& is, const StringStore& definitions)
             , std::istreambuf_iterator<char>()
             );
         SetLineIndex();
-        CppFile::Context ctx(this, definitions, m_path);
+        Context ctx(this, definitions, m_path);
         ctx.set_language(boost::wave::enable_preserve_comments(ctx.get_language()));
         for (auto& item : definitions)
             ctx.add_macro_definition(item, true);
 
         std::vector<PositionType> parenStack;
-        CppFile::Context::iterator_type first = ctx.begin();
-        CppFile::Context::iterator_type last = ctx.end();
+        Context::iterator_type first = ctx.begin();
+        Context::iterator_type last = ctx.end();
         while (first != last)
         {
             boost::wave::token_id token = *first;
@@ -701,6 +708,9 @@ CppFile::Load(std::istream& is, const StringStore& definitions)
             {
                 StringType identifier = first->get_value().c_str();
                 m_identiferPositions[identifier].push_back(m_processed);
+                auto pItem = m_identiferNewName.find(identifier);
+                if (m_identiferNewName.end() != pItem)
+                    ModifyText(m_processed, identifier, pItem->second);
             }
             else if (boost::wave::T_UNKNOWN == token)
             {
