@@ -9,6 +9,22 @@ using StringType = std::string;
 using StringStore = std::vector<StringType>;
 
 // Declare the supported options.
+static const char* substituteParam =
+"add arg (to the list of identifier substitions.\n"
+"Use a string of the form identifier=newIdentifier for arg.\n"
+;
+static const char* defineParam =
+"add arg to the list of macro definitions.\n"
+"Use a string of the form macroName=intValue for arg.\n"
+;
+static const char* extParam =
+"add arg to the list of checked file extensions.\n"
+"The default extension list is [.cpp, .cxx, .hpp, .h].\n"
+;
+static const char* countParam =
+"do not apply changes.\n"
+"List the number of lines to be removed from each file.\n"
+;
     po::options_description
 GetOptionDescription()
 {
@@ -16,12 +32,12 @@ GetOptionDescription()
         ( "cpp_resolve {options} {file_or_directory_list}\n\nwhere valid options are"
         );
     data.add_options()
-        ("help,h", "produce help message")
+        ("help,h", "output a usage synopsis")
         ("quiet,q", "do not print file names")
-        ("count,c", "do not apply changes, list the number of lines to be removed from each file")
-        ("substitute,s", po::value<StringStore>(), "add to the list of identifier substitions")
-        ("define,d", po::value<StringStore>(), "add to the list of macro definitions")
-        ("ext,e", po::value<StringStore>(), "add to the list of checked file extensions: default [.cpp, .cxx, .hpp, .h]")
+        ("count,c", countParam)
+        ("substitute,s", po::value<StringStore>(), substituteParam)
+        ("define,d", po::value<StringStore>(), defineParam)
+        ("ext,e", po::value<StringStore>(), extParam)
         ;
     return data;
 }
@@ -80,7 +96,8 @@ int main( int argc, char* argv[] )
             DirectoryEntryIterator fileIter(itemStore.begin(), itemStore.end(), selector);
             for (fileIter.Start(); !fileIter.Off(); fileIter.Forth())
             {
-                CppFile file(fileIter.Item(), defineStore);
+                auto filePath = fileIter.Item();
+                CppFile file(filePath, defineStore);
                 for (auto& item : substitutionStore)
                 {
                     auto assignIndex = item.find('=');
@@ -91,23 +108,23 @@ int main( int argc, char* argv[] )
                     file.AddSubstitution(identifier, identifierValue);
                 }
                 CppFile::CountType deletedLineCount{ 0 };
+                CppFile::CountType updateCount{ 0 };
                 if (!file.IsValid())
-                    std::cerr << "Skipping invalid " << fileIter.Item() << "\n";
-                 else if (0 < file.GetUpdateCount(&deletedLineCount))
+                    std::cerr << "Skipping invalid " << filePath << "\n";
+                 else if (0 < (updateCount = file.GetUpdateCount(&deletedLineCount)))
                  {
-                    LOG4CXX_INFO(log_s, fileIter.Item().string()
-                        << ": " << deletedLineCount << " lines"
-                        << (changeFiles ? " removed" : " removable")
-                        );
+                    std::stringstream ss;
+                    ss << filePath.string() << ": ";
+                    if (0 < deletedLineCount)
+                        ss << deletedLineCount << " lines"
+                           << (changeFiles ? " removed" : " removable");
+                    else if (!substitutionStore.empty())
+                        ss << updateCount << " substitutions";
+                    LOG4CXX_INFO(log_s, ss.str());
                     if (changeFiles)
-                        file.StoreFile(fileIter.Item());
+                        file.StoreFile(filePath);
                     if (!quiet)
-                    {
-                        std::cout << fileIter.Item().string()
-                            << ": " << deletedLineCount << " lines"
-                            << (changeFiles ? " removed" : " removable")
-                            << "\n";
-                    }
+                        std::cout << ss.str() << "\n";
                 }
             }
         }

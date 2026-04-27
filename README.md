@@ -7,7 +7,7 @@ deleting all but one branch of conditionally compiled preprocessor directives.
 Only those conditional compilation expressions in which
 all identifiers are resolved are modified.
 
-For example, ```cpp_resovle -d LOG4CXX_ABI_VERSION=16 src``` may result in the following diff report
+For example, ```cpp_resolve -d LOG4CXX_ABI_VERSION=16 src``` may result in the following diff report
 leaving a single line of code in place of the preprocessor code block:
 ```
 @@ -255,11 +234,7 @@ class LOG4CXX_EXPORT Hierarchy : public spi::LoggerRepository
@@ -28,10 +28,17 @@ Synopsis
 
 cpp_resolve {options} {file_or_directory_list}
 
-Option             | Description
--------------------|------------------------------------------------
--h [ --help ]      |   produce help message
--q [ --quiet ]     |   do not print file names
--d [ --define ] arg|   add to the list of macro definitions
--c [ --count ]     |   do not apply changes, list the number of lines to be removed from each file
--e [ --ext ] arg   |   add to the list of checked file extensions: default [.cpp, .cxx, .hpp, .h]
+Option                  | Description
+------------------------|------------------------------------------------
+-h [ --help ]           | output a usage synopsis
+-q [ --quiet ]          | do not print file names
+-s [ --substitute ] arg | add arg to the list of identifier substitions
+-d [ --define ] arg     | add arg to the list of macro definitions
+-c [ --count ]          | do not apply changes, list the number of lines to be removed from each file
+-e [ --ext ] arg        | add arg to the list of checked file extensions
+
+Use a string of the form ```identifier=newIdentifier``` for the ```--substitute``` arg.
+
+Use a string of the form ```macroName=intValue``` for the ```--define``` arg.
+
+The default list of checked file extensions is ```[.cpp, .cxx, .hpp, .h]```.
