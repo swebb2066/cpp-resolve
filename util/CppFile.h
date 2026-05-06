@@ -84,6 +84,7 @@ public: // Modifiers
     void Store(std::ostream& os);
 
 protected: // Support methods
+    StringType GetIdentifierAt(const PositionType& lineCol) const;
     void AppendText(const PositionType& lineCol, const StringType& text);
     void InsertText(const PositionType& lineCol, const StringType& text);
     void ModifyText(const PositionType& lineCol, const StringType& oldText, const StringType& newText);

@@ -5,9 +5,9 @@
 BOOST_AUTO_TEST_CASE( simplest_directive_test )
 {
     CppFile file;
-	CppFile::StringStore definitions
-	{ "LOG4CXX_ABI_VERSION=16"
-	};
+    CppFile::StringStore definitions
+    { "LOG4CXX_ABI_VERSION=16"
+    };
     BOOST_REQUIRE(file.LoadFile("log4cxx/aprinitializer.cpp", definitions));
     auto oldLineCount = file.GetLineCount();
     CppFile::CountType deletedLineCount;
@@ -26,9 +26,9 @@ BOOST_AUTO_TEST_CASE( simplest_directive_test )
 BOOST_AUTO_TEST_CASE( ifelse_directive_test )
 {
     CppFile file;
-	CppFile::StringStore definitions
-	{ "LOG4CXX_ABI_VERSION=16"
-	};
+    CppFile::StringStore definitions
+    { "LOG4CXX_ABI_VERSION=16"
+    };
     BOOST_REQUIRE(file.LoadFile("log4cxx/hierarchy.h", definitions));
     auto oldLineCount = file.GetLineCount();
     CppFile::CountType deletedLineCount;
@@ -47,10 +47,10 @@ BOOST_AUTO_TEST_CASE( ifelse_directive_test )
 BOOST_AUTO_TEST_CASE( compound_elif_directive_test )
 {
     CppFile file;
-	CppFile::StringStore definitions
-	{ "LOG4CXX_ABI_VERSION=16"
+    CppFile::StringStore definitions
+    { "LOG4CXX_ABI_VERSION=16"
     , "__GNUC__=11"
-	};
+    };
     BOOST_REQUIRE(file.LoadFile("log4cxx/log4cxx.h", definitions));
     auto oldLineCount = file.GetLineCount();
     CppFile::CountType deletedLineCount;
@@ -69,11 +69,15 @@ BOOST_AUTO_TEST_CASE( compound_elif_directive_test )
 BOOST_AUTO_TEST_CASE( substitution_test )
 {
     CppFile file;
-	file.AddSubstitution("LOG4CXX_NS", "nlog4cxx");
-    BOOST_REQUIRE(file.LoadFile("log4cxx/log4cxx.h"));
+    CppFile::StringStore definitions{ "LOG4CXX_ABI_VERSION=16" };
+    file.AddSubstitution("LOG4CXX_FORMAT_LAYOUT_FORMAL_PARAMETERS", "LogString& output, const spi::LoggingEventPtr& event");
+    file.AddSubstitution("LOG4CXX_APPEND_HEADER_FORMAL_PARAMETERS", "LogString& output");
+    file.AddSubstitution("LOG4CXX_APPEND_FOOTER_FORMAL_PARAMETERS", "LogString& output");
+    BOOST_REQUIRE(file.LoadFile("log4cxx/layout.h", definitions));
     auto oldLineCount = file.GetLineCount();
     CppFile::CountType deletedLineCount;
-    BOOST_CHECK_EQUAL(file.GetUpdateCount(&deletedLineCount), 2);
+    BOOST_CHECK_EQUAL(file.GetUpdateCount(&deletedLineCount), 13);
+    BOOST_CHECK_EQUAL(deletedLineCount, 41);
 
     std::stringstream ss;
     file.Store(ss);
@@ -100,9 +104,9 @@ BOOST_AUTO_TEST_CASE( deeply_embedded_resolved_true_directive_test )
         "#endif\n"
         ;
     CppFile file;
-	CppFile::StringStore definitions
-	{ "RESOLVED_MACRO_4=1"
-	};
+    CppFile::StringStore definitions
+    { "RESOLVED_MACRO_4=1"
+    };
     BOOST_REQUIRE(file.Load(input, definitions));
     auto oldLineCount = file.GetLineCount();
     CppFile::CountType deletedLineCount;
@@ -134,9 +138,9 @@ BOOST_AUTO_TEST_CASE( deeply_embedded_resolved_false_directive_test )
         "#endif\n"
         ;
     CppFile file;
-	CppFile::StringStore definitions
-	{ "RESOLVED_MACRO_4=0"
-	};
+    CppFile::StringStore definitions
+    { "RESOLVED_MACRO_4=0"
+    };
     BOOST_REQUIRE(file.Load(input, definitions));
     auto oldLineCount = file.GetLineCount();
     CppFile::CountType deletedLineCount;

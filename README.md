@@ -42,3 +42,5 @@ Use a string of the form ```identifier=newIdentifier``` for the ```--substitute`
 Use a string of the form ```macroName=intValue``` for the ```--define``` arg.
 
 The default list of checked file extensions is ```[.cpp, .cxx, .hpp, .h]```.
+
+cpp_resolve will also remove any #define that declares a renamed identifier.

@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <ctype.h>
+#include <regex>
 
 #ifdef _MSC_VER
 #pragma warning (disable : 4996) // sprintf is used in boost::wave
@@ -53,6 +54,17 @@ struct DirectivePosition
     DirectivePosition(const ConditionPosition& initial, const std::vector<ConditionPosition>& alternates)
         : start{ initial }
         , end{ alternates }
+        {}
+};
+struct DirectiveRange
+{
+    CppFile::CountType startLine;
+    PositionType identifier;
+    CppFile::CountType endLine;
+    DirectiveRange(CppFile::CountType line, CppFile::CountType column)
+        : startLine{ line }
+        , identifier{ line, column }
+        , endLine{ line }
         {}
 };
 
@@ -191,6 +203,7 @@ public: // Types
 public: // Attributes
     CppFile* parent{ nullptr };
     std::vector<DirectivePosition> directiveStack;
+    std::vector<DirectiveRange> macro_definition;
     TokenType lastDirective;
 
 public: // ...structors
@@ -424,7 +437,7 @@ bool CustomDirectivesHooks::found_directive(ContextT const &ctx, TokenT const &d
                 );
             break;
         }
-        LOG4CXX_TRACE(log_s, "else " << " start@ " << directiveStack.back().start.pos.first);
+        LOG4CXX_TRACE(log_s, "else" << " start@ " << directiveStack.back().start.pos.first);
         directiveStack.back().end.push_back(ConditionPosition{ directive, pos });
         derivedContext.lastDirective = directive;
         break;
@@ -465,6 +478,15 @@ bool CustomDirectivesHooks::found_directive(ContextT const &ctx, TokenT const &d
         directiveStack.pop_back();
         derivedContext.lastDirective = directive;
         break;
+    case boost::wave::T_PP_DEFINE:
+        derivedContext.macro_definition.emplace_back
+            ( pos.line
+            , pos.column + CppFile::CountType(directive.get_value().size() + 1)
+            );
+        LOG4CXX_TRACE(log_s, "define"
+            << " identifier@ " << derivedContext.macro_definition.back().identifier
+            );
+        // fall through
     default:
         skip = true;
         break;
@@ -517,6 +539,9 @@ bool CustomDirectivesHooks::evaluated_conditional_expression
     void
 CppFile::AddSubstitution(const StringType& identifier, const StringType& newValue)
 {
+    LOG4CXX_TRACE(log_s, "AddSubstitution " << identifier
+        << " newValue " << newValue
+        );
     m_identiferNewName[identifier] = newValue;
 }
 
@@ -725,6 +750,14 @@ CppFile::Load(std::istream& is, const StringStore& definitions)
             m_tokenPositions[m_processed] = token;
             ++first;
         }
+        // Remove #define lines for substituted identifiers
+        for (auto& item : ctx.macro_definition)
+        {
+            StringType identifier = GetIdentifierAt(item.identifier);
+            auto pItem = m_identiferNewName.find(identifier);
+            if (m_identiferNewName.end() != pItem)
+                RemoveLines(item.startLine, item.endLine);
+        }
         ok = true;
     }
     catch (boost::wave::cpplexer::lexing_exception const& e)
@@ -756,6 +789,22 @@ CppFile::Load(std::istream& is, const StringStore& definitions)
             );
     }
     return ok;
+}
+
+// The identifier at \c lineCol
+    auto
+CppFile::GetIdentifierAt(const PositionType& lineCol) const -> StringType
+{
+    size_t contentIndex = GetContentIndex(lineCol);
+    while (contentIndex < m_content.size() && std::isspace(static_cast<unsigned char>(m_content[contentIndex])))
+        ++contentIndex;
+    std::regex identifier_regex("[a-zA-Z_$][a-zA-Z_0-9$]*");
+    std::smatch identifier_match;
+    StringType result;
+    if (std::regex_search(m_content.begin() + contentIndex, m_content.end(), identifier_match, identifier_regex))
+        result = identifier_match[0];
+    LOG4CXX_DEBUG(log_s, "GetIdentifierAt: " << lineCol << " result " << CStringRef<StringType>(result));
+    return result;
 }
 
 /// Append \c text after \c lineCol
