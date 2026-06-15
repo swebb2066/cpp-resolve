@@ -210,6 +210,7 @@ public: // ...structors
     Context(const StringType& content, const StringType& path)
         : BaseType(content.begin(), content.end(), path.c_str(), CustomDirectivesHooks{})
     {
+        set_language(boost::wave::enable_preserve_comments(get_language()), false);
     }
     Context
         ( CppFile* parent
@@ -218,7 +219,6 @@ public: // ...structors
         )
         : CppFile::Context(parent->GetContent(), path.string())
     {
-        set_language(boost::wave::enable_long_long(get_language()));
         this->parent = parent;
         for (auto& item : definitions)
         {
@@ -703,10 +703,6 @@ CppFile::Load(std::istream& is, const StringStore& definitions)
             );
         SetLineIndex();
         Context ctx(this, definitions, m_path);
-        ctx.set_language(boost::wave::enable_preserve_comments(ctx.get_language()));
-        for (auto& item : definitions)
-            ctx.add_macro_definition(item, true);
-
         std::vector<PositionType> parenStack;
         Context::iterator_type first = ctx.begin();
         Context::iterator_type last = ctx.end();
@@ -798,7 +794,7 @@ CppFile::GetIdentifierAt(const PositionType& lineCol) const -> StringType
     size_t contentIndex = GetContentIndex(lineCol);
     while (contentIndex < m_content.size() && std::isspace(static_cast<unsigned char>(m_content[contentIndex])))
         ++contentIndex;
-    std::regex identifier_regex("[a-zA-Z_$][a-zA-Z_0-9$]*");
+    static std::regex identifier_regex("[a-zA-Z_$][a-zA-Z_0-9$]*");
     std::smatch identifier_match;
     StringType result;
     if (std::regex_search(m_content.begin() + contentIndex, m_content.end(), identifier_match, identifier_regex))
