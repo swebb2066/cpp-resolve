@@ -40,7 +40,7 @@ public:
                 else
                     os << m_separator;
             }
-            os << (D)m_vec[i];
+            os << '"' << (D)m_vec[i] << '"';
         }
     }
 };

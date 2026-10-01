@@ -210,7 +210,7 @@ public: // ...structors
     Context(const StringType& content, const StringType& path)
         : BaseType(content.begin(), content.end(), path.c_str(), CustomDirectivesHooks{})
     {
-        set_language(boost::wave::enable_preserve_comments(get_language()), false);
+        set_language(boost::wave::enable_long_long(boost::wave::enable_preserve_comments(get_language())), false);
     }
     Context
         ( CppFile* parent

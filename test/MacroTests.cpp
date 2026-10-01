@@ -66,6 +66,28 @@ BOOST_AUTO_TEST_CASE( compound_elif_directive_test )
     BOOST_CHECK_EQUAL(processedFile.GetUpdateCount(), 0);
 }
 
+BOOST_AUTO_TEST_CASE( if_directive_inside_if_directive_test )
+{
+    CppFile file;
+    CppFile::StringStore definitions
+    { "LOG4CXX_UNICHAR_API=0"
+    , "LOG4CXX_LOGCHAR_IS_UNICHAR=0"
+    };
+    BOOST_REQUIRE(file.LoadFile("log4cxx/messagebuffer.h", definitions));
+    auto oldLineCount = file.GetLineCount();
+    CppFile::CountType deletedLineCount;
+    BOOST_CHECK_EQUAL(file.GetUpdateCount(&deletedLineCount), 4);
+    BOOST_CHECK_EQUAL(deletedLineCount, 248);
+
+    std::stringstream ss;
+    file.Store(ss);
+    CppFile processedFile;
+    BOOST_REQUIRE(processedFile.Load(ss, definitions));
+    BOOST_CHECK_EQUAL(processedFile.GetLineCount(), oldLineCount - deletedLineCount);
+    BOOST_CHECK(processedFile.IsValid());
+    BOOST_CHECK_EQUAL(processedFile.GetUpdateCount(), 0);
+}
+
 BOOST_AUTO_TEST_CASE( substitution_test )
 {
     CppFile file;
@@ -73,11 +95,12 @@ BOOST_AUTO_TEST_CASE( substitution_test )
     file.AddSubstitution("LOG4CXX_FORMAT_LAYOUT_FORMAL_PARAMETERS", "LogString& output, const spi::LoggingEventPtr& event");
     file.AddSubstitution("LOG4CXX_APPEND_HEADER_FORMAL_PARAMETERS", "LogString& output");
     file.AddSubstitution("LOG4CXX_APPEND_FOOTER_FORMAL_PARAMETERS", "LogString& output");
+    file.AddSubstitution("LOG4CXX_ACTIVATE_OPTIONS_FORMAL_PARAMETERS", "");
     BOOST_REQUIRE(file.LoadFile("log4cxx/layout.h", definitions));
     auto oldLineCount = file.GetLineCount();
     CppFile::CountType deletedLineCount;
-    BOOST_CHECK_EQUAL(file.GetUpdateCount(&deletedLineCount), 13);
-    BOOST_CHECK_EQUAL(deletedLineCount, 41);
+    BOOST_CHECK_EQUAL(file.GetUpdateCount(&deletedLineCount), 16);
+    BOOST_CHECK_EQUAL(deletedLineCount, 44);
 
     std::stringstream ss;
     file.Store(ss);

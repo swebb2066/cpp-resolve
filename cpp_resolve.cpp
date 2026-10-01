@@ -97,7 +97,7 @@ int main( int argc, char* argv[] )
             for (fileIter.Start(); !fileIter.Off(); fileIter.Forth())
             {
                 auto filePath = fileIter.Item();
-                CppFile file(filePath, defineStore);
+                CppFile file;
                 for (auto& item : substitutionStore)
                 {
                     auto assignIndex = item.find('=');
@@ -107,6 +107,7 @@ int main( int argc, char* argv[] )
                         identifierValue = item.substr(assignIndex + 1);
                     file.AddSubstitution(identifier, identifierValue);
                 }
+                file.LoadFile(filePath, defineStore);
                 CppFile::CountType deletedLineCount{ 0 };
                 CppFile::CountType updateCount{ 0 };
                 if (!file.IsValid())
