@@ -99,8 +99,8 @@ BOOST_AUTO_TEST_CASE( substitution_test )
     BOOST_REQUIRE(file.LoadFile("log4cxx/layout.h", definitions));
     auto oldLineCount = file.GetLineCount();
     CppFile::CountType deletedLineCount;
-    BOOST_CHECK_EQUAL(file.GetUpdateCount(&deletedLineCount), 16);
-    BOOST_CHECK_EQUAL(deletedLineCount, 44);
+    BOOST_CHECK_EQUAL(file.GetUpdateCount(&deletedLineCount), 14);
+    BOOST_CHECK_EQUAL(deletedLineCount, 41);
 
     std::stringstream ss;
     file.Store(ss);

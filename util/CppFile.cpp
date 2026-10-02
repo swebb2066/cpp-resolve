@@ -595,7 +595,7 @@ CppFile::GetUpdateCount(CountType* deletedLineCount) const -> CountType
     return static_cast<CountType>(m_updates.size());
 }
 
-/// Has an been made between \c start and before \c end
+/// Has an update been made between \c start and before \c end
     bool
 CppFile::HasUpdateBetween(const PositionType& start, const PositionType& end) const
 {
@@ -751,7 +751,7 @@ CppFile::Load(std::istream& is, const StringStore& definitions)
         {
             StringType identifier = GetIdentifierAt(item.identifier);
             auto pItem = m_identiferNewName.find(identifier);
-            if (m_identiferNewName.end() != pItem)
+            if (m_identiferNewName.end() != pItem && !AlreadyRemoved(item.startLine, item.endLine))
                 RemoveLines(item.startLine, item.endLine);
         }
         ok = true;
@@ -842,6 +842,27 @@ CppFile::ModifyText(const PositionType& lineCol, const StringType& oldText, cons
     while (0 < m_updates.count(key))
         --key.second;
     m_updates[key] = newData;
+}
+
+/// Are the lines (1-based) \c first to \c last already removed?
+    bool
+CppFile::AlreadyRemoved(CountType first, CountType last) const
+{
+    if (m_updates.empty())
+        return false;
+    PositionType lineCol{first, 1};
+    auto resumeAt = GetContentIndex(PositionType{last + 1, 1});
+    static const int MaxUpdatesPerPosition = 100;
+    UpdateKey keyStart(lineCol, -MaxUpdatesPerPosition);
+    auto pUpdate = m_updates.upper_bound(keyStart);
+    bool removed = false;
+    if (m_updates.begin() != pUpdate)
+    {
+        pUpdate = std::prev(pUpdate);
+        removed =  pUpdate->second.at <= resumeAt && resumeAt <= pUpdate->second.resumeAt;
+    }
+    LOG4CXX_TRACE(log_s, "AlreadyRemoved: " << first << " and " << last << " removed? " << removed);
+    return removed;
 }
 
 /// Remove the lines from (1-based) \c first to \c last

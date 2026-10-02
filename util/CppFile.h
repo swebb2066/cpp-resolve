@@ -88,6 +88,7 @@ protected: // Support methods
     void AppendText(const PositionType& lineCol, const StringType& text);
     void InsertText(const PositionType& lineCol, const StringType& text);
     void ModifyText(const PositionType& lineCol, const StringType& oldText, const StringType& newText);
+    bool AlreadyRemoved(CountType first, CountType last) const;
     void RemoveLines(CountType first, CountType last = 0);
     void ReplaceLines(CountType first, CountType last, const StringType& newText);
     size_t GetContentIndex(const PositionType& index) const;
