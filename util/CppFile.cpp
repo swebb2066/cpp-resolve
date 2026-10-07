@@ -535,6 +535,17 @@ bool CustomDirectivesHooks::evaluated_conditional_expression
 ///////////////////////////////////////////////////////////////////////////////
 //  CppFile implementation
 
+CppFile::CppFile
+    ( const PathType&      path
+    , const StringStore&   definitions
+    , const KeyValueStore& substitutions
+    )
+{
+    for (auto& item : substitutions)
+        m_identiferNewName[item.first] = item.second;
+    LoadFile(path, definitions);
+}
+
 /// Replace all instance of \c identifier with \c newValue
     void
 CppFile::AddSubstitution(const StringType& identifier, const StringType& newValue)

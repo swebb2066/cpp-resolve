@@ -12,6 +12,8 @@ public: // Types
     using PathType = boost::filesystem::path;
     using StringType = std::string;
     using StringStore = std::vector<StringType>;
+    using StringPair = std::pair<StringType, StringType>;
+    using KeyValueStore = std::vector<StringPair>;
     using CountType = unsigned int;
 
     class FunctionIterator;
@@ -65,8 +67,11 @@ private: // Attributes
 
 public: // ...structors
     CppFile() : m_path{ "<Unknown>" } {}
-    CppFile(const PathType& path, const StringStore& definitions = {})
-    { LoadFile(path, definitions); }
+    CppFile
+        ( const PathType&      path
+        , const StringStore&   definitions = {}
+        , const KeyValueStore& substitutions = {}
+        );
 
 public: // Accessors
     const StringType& GetContent() const { return m_content; }

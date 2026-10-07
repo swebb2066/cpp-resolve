@@ -86,6 +86,16 @@ int main( int argc, char* argv[] )
             StringStore substitutionStore;
             if (vm.count("substitute"))
                 substitutionStore = vm["substitute"].as<StringStore>();
+            CppFile::KeyValueStore keyValueStore;
+            for (auto& item : substitutionStore)
+            {
+                auto assignIndex = item.find('=');
+                auto identifier = item.substr(0, assignIndex);
+                StringType identifierValue;
+                if (item.npos != assignIndex)
+                    identifierValue = item.substr(assignIndex + 1);
+                keyValueStore.emplace_back(identifier, identifierValue);
+            }
             StringStore extStore = {".cpp", ".cxx", ".hpp", ".h"};
             if (vm.count("ext"))
             {
@@ -97,17 +107,7 @@ int main( int argc, char* argv[] )
             for (fileIter.Start(); !fileIter.Off(); fileIter.Forth())
             {
                 auto filePath = fileIter.Item();
-                CppFile file;
-                for (auto& item : substitutionStore)
-                {
-                    auto assignIndex = item.find('=');
-                    auto identifier = item.substr(0, assignIndex);
-                    StringType identifierValue;
-                    if (item.npos != assignIndex)
-                        identifierValue = item.substr(assignIndex + 1);
-                    file.AddSubstitution(identifier, identifierValue);
-                }
-                file.LoadFile(filePath, defineStore);
+                CppFile file(filePath, defineStore, keyValueStore);
                 CppFile::CountType deletedLineCount{ 0 };
                 CppFile::CountType updateCount{ 0 };
                 if (!file.IsValid())
