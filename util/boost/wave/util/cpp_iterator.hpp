@@ -2165,11 +2165,16 @@ token_sequence_type expanded;
                 evaluate(expanded.begin(), expanded.end(), act_pos,
                     ctx.get_if_block_status(), status);
         }
+#if IF_BLOCK_DIRECTIVE_EXPRESSION_VALUE_IS_ACCURATE
         catch (boost::wave::preprocess_exception const& e) {
         // any errors occurred have to be dispatched to the context hooks
             ctx.get_hooks().throw_exception(ctx.derived(), e);
         }
-
+#else
+        catch (boost::wave::preprocess_exception const& ) {
+            // When skipping #include statements, the expression value is using undefined macro values
+        }
+#endif
 #if BOOST_WAVE_USE_DEPRECIATED_PREPROCESSING_HOOKS != 0
         ctx.get_hooks().evaluated_conditional_expression(toexpand, if_status);
     } while (false);
