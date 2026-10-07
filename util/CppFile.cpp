@@ -709,21 +709,21 @@ CppFile::LoadFile(const PathType& path, const StringStore& definitions)
 CppFile::Load(std::istream& is, const StringStore& definitions)
 {
     is.unsetf(std::ios::skipws);
+    m_content = StringType
+        ( std::istreambuf_iterator<char>(is.rdbuf())
+        , std::istreambuf_iterator<char>()
+        );
+    SetLineIndex();
+    m_tokenPositions.clear();
+    m_parenMate.clear();
+    m_identiferPositions.clear();
+    m_updates.clear();
+    m_deletedLineCount = 0;
     bool ok = false;
     position_type current_position;
+    Context ctx(this, definitions, m_path);
     try
     {
-        m_content = StringType
-            ( std::istreambuf_iterator<char>(is.rdbuf())
-            , std::istreambuf_iterator<char>()
-            );
-        SetLineIndex();
-        m_tokenPositions.clear();
-        m_parenMate.clear();
-        m_identiferPositions.clear();
-        m_updates.clear();
-        m_deletedLineCount = 0;
-        Context ctx(this, definitions, m_path);
         std::vector<PositionType> parenStack;
         Context::iterator_type first = ctx.begin();
         Context::iterator_type last = ctx.end();
@@ -764,27 +764,6 @@ CppFile::Load(std::istream& is, const StringStore& definitions)
             m_tokenPositions[m_processed] = token;
             ++first;
         }
-        // Remove #define lines for substituted identifiers
-        for (auto& item : ctx.macro_definition)
-        {
-            StringType identifier = GetIdentifierAt(item.identifier);
-            auto pItem = m_identiferNewName.find(identifier);
-            if (m_identiferNewName.end() != pItem && !AlreadyRemoved(item.startLine, item.endLine))
-                RemoveLines(item.startLine, item.endLine);
-        }
-        // Replace substituted identifiers
-        for (auto& item : m_identiferPositions)
-        {
-            auto pNameChange = m_identiferNewName.find(item.first);
-            if (m_identiferNewName.end() != pNameChange)
-            {
-                for (auto& itemPos : item.second)
-                {
-                    if (!AlreadyRemoved(itemPos.line, itemPos.line))
-                        ModifyText(itemPos, pNameChange->first, pNameChange->second);
-                }
-            }
-        }
         ok = true;
     }
     catch (boost::wave::cpplexer::lexing_exception const& e)
@@ -814,6 +793,27 @@ CppFile::Load(std::istream& is, const StringStore& definitions)
             << " at " << current_position.get_file()
             << '(' << current_position.get_line() << ')'
             );
+    }
+    // Remove #define lines for substituted identifiers
+    for (auto& item : ctx.macro_definition)
+    {
+        StringType identifier = GetIdentifierAt(item.identifier);
+        auto pItem = m_identiferNewName.find(identifier);
+        if (m_identiferNewName.end() != pItem && !AlreadyRemoved(item.startLine, item.endLine))
+            RemoveLines(item.startLine, item.endLine);
+    }
+    // Replace substituted identifiers
+    for (auto& item : m_identiferPositions)
+    {
+        auto pNameChange = m_identiferNewName.find(item.first);
+        if (m_identiferNewName.end() != pNameChange)
+        {
+            for (auto& itemPos : item.second)
+            {
+                if (!AlreadyRemoved(itemPos.line, itemPos.line))
+                    ModifyText(itemPos, pNameChange->first, pNameChange->second);
+            }
+        }
     }
     return ok;
 }

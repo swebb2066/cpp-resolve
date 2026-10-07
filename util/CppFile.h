@@ -52,10 +52,10 @@ protected: // Types
     using StringMap = std::map<StringType, StringType>;
 
 private: // Properties
-    PathType m_path;
     StringMap m_identiferNewName;
 
 private: // Attributes
+    PathType m_path;
     StringType m_content;
     IndexStore m_lineIndex;
     PositionType m_processed;
