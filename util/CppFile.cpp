@@ -536,24 +536,32 @@ bool CustomDirectivesHooks::evaluated_conditional_expression
 //  CppFile implementation
 
 CppFile::CppFile
-    ( const PathType&      path
+    ( const KeyValueStore& substitutions
+    , const PathType&      path
     , const StringStore&   definitions
-    , const KeyValueStore& substitutions
     )
 {
+    LOG4CXX_DEBUG(log_s, "create:"
+        << " substitutionCount " << substitutions.size()
+        << " path " << path
+        << " definitionCount " << definitions.size()
+        );
     for (auto& item : substitutions)
         m_identiferNewName[item.first] = item.second;
-    LoadFile(path, definitions);
+    if (!path.empty())
+        LoadFile(path, definitions);
 }
 
-/// Replace all instance of \c identifier with \c newValue
-    void
-CppFile::AddSubstitution(const StringType& identifier, const StringType& newValue)
+CppFile::CppFile
+    ( const PathType&      path
+    , const StringStore&   definitions
+    )
 {
-    LOG4CXX_TRACE(log_s, "AddSubstitution " << identifier
-        << " newValue " << newValue
+    LOG4CXX_DEBUG(log_s, "create:"
+        << " path " << path
+        << " definitionCount " << definitions.size()
         );
-    m_identiferNewName[identifier] = newValue;
+    LoadFile(path, definitions);
 }
 
 /// The index into \c m_content corresponding to (1-based) index.line and index.col
@@ -705,14 +713,16 @@ CppFile::Load(std::istream& is, const StringStore& definitions)
     position_type current_position;
     try
     {
-        m_identiferPositions.clear();
-        m_parenMate.clear();
-        m_tokenPositions.clear();
         m_content = StringType
             ( std::istreambuf_iterator<char>(is.rdbuf())
             , std::istreambuf_iterator<char>()
             );
         SetLineIndex();
+        m_tokenPositions.clear();
+        m_parenMate.clear();
+        m_identiferPositions.clear();
+        m_updates.clear();
+        m_deletedLineCount = 0;
         Context ctx(this, definitions, m_path);
         std::vector<PositionType> parenStack;
         Context::iterator_type first = ctx.begin();

@@ -90,12 +90,14 @@ BOOST_AUTO_TEST_CASE( if_directive_inside_if_directive_test )
 
 BOOST_AUTO_TEST_CASE( substitution_test )
 {
-    CppFile file;
+    CppFile::KeyValueStore substitutions
+    { {"LOG4CXX_FORMAT_LAYOUT_FORMAL_PARAMETERS", "LogString& output, const spi::LoggingEventPtr& event" }
+    , {"LOG4CXX_APPEND_HEADER_FORMAL_PARAMETERS", "LogString& output" }
+    , {"LOG4CXX_APPEND_FOOTER_FORMAL_PARAMETERS", "LogString& output" }
+    , {"LOG4CXX_ACTIVATE_OPTIONS_FORMAL_PARAMETERS", "" }
+    };
+    CppFile file(substitutions);
     CppFile::StringStore definitions{ "LOG4CXX_ABI_VERSION=16" };
-    file.AddSubstitution("LOG4CXX_FORMAT_LAYOUT_FORMAL_PARAMETERS", "LogString& output, const spi::LoggingEventPtr& event");
-    file.AddSubstitution("LOG4CXX_APPEND_HEADER_FORMAL_PARAMETERS", "LogString& output");
-    file.AddSubstitution("LOG4CXX_APPEND_FOOTER_FORMAL_PARAMETERS", "LogString& output");
-    file.AddSubstitution("LOG4CXX_ACTIVATE_OPTIONS_FORMAL_PARAMETERS", "");
     BOOST_REQUIRE(file.LoadFile("log4cxx/layout.h", definitions));
     auto oldLineCount = file.GetLineCount();
     CppFile::CountType deletedLineCount;

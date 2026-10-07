@@ -79,23 +79,23 @@ int main( int argc, char* argv[] )
                 << GetOptionDescription() << "\n";
         else
         {
-            StringStore itemStore = vm["file-or-dir"].as<StringStore>();
+            CppFile::KeyValueStore keyValueStore;
+            if (vm.count("substitute"))
+            {
+                for (auto& item : vm["substitute"].as<StringStore>())
+                {
+                    auto assignIndex = item.find('=');
+                    auto identifier = item.substr(0, assignIndex);
+                    StringType identifierValue;
+                    if (item.npos != assignIndex)
+                        identifierValue = item.substr(assignIndex + 1);
+                    keyValueStore.emplace_back(identifier, identifierValue);
+                }
+            }
+            CppFile file(keyValueStore);
             StringStore defineStore;
             if (vm.count("define"))
                 defineStore = vm["define"].as<StringStore>();
-            StringStore substitutionStore;
-            if (vm.count("substitute"))
-                substitutionStore = vm["substitute"].as<StringStore>();
-            CppFile::KeyValueStore keyValueStore;
-            for (auto& item : substitutionStore)
-            {
-                auto assignIndex = item.find('=');
-                auto identifier = item.substr(0, assignIndex);
-                StringType identifierValue;
-                if (item.npos != assignIndex)
-                    identifierValue = item.substr(assignIndex + 1);
-                keyValueStore.emplace_back(identifier, identifierValue);
-            }
             StringStore extStore = {".cpp", ".cxx", ".hpp", ".h"};
             if (vm.count("ext"))
             {
@@ -103,11 +103,12 @@ int main( int argc, char* argv[] )
                 extStore.insert(extStore.end(), extra.begin(), extra.end());
             }
             DirectoryEntrySelectorPtr selector(new ExtensionSelector(extStore.begin(), extStore.end()));
+            StringStore itemStore = vm["file-or-dir"].as<StringStore>();
             DirectoryEntryIterator fileIter(itemStore.begin(), itemStore.end(), selector);
             for (fileIter.Start(); !fileIter.Off(); fileIter.Forth())
             {
                 auto filePath = fileIter.Item();
-                CppFile file(filePath, defineStore, keyValueStore);
+                file.LoadFile(filePath, defineStore);
                 CppFile::CountType deletedLineCount{ 0 };
                 CppFile::CountType updateCount{ 0 };
                 if (!file.IsValid())
@@ -119,7 +120,7 @@ int main( int argc, char* argv[] )
                     if (0 < deletedLineCount)
                         ss << deletedLineCount << " lines"
                            << (changeFiles ? " removed" : " removable");
-                    else if (!substitutionStore.empty())
+                    else if (!keyValueStore.empty())
                         ss << updateCount << " substitutions";
                     LOG4CXX_INFO(log_s, ss.str());
                     if (changeFiles)

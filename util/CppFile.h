@@ -66,11 +66,14 @@ private: // Attributes
     CountType m_deletedLineCount{ 0 };
 
 public: // ...structors
-    CppFile() : m_path{ "<Unknown>" } {}
+    CppFile
+        ( const KeyValueStore& substitutions = {}
+        , const PathType&      path = {}
+        , const StringStore&   definitions = {}
+        );
     CppFile
         ( const PathType&      path
-        , const StringStore&   definitions = {}
-        , const KeyValueStore& substitutions = {}
+        , const StringStore&   definitions
         );
 
 public: // Accessors
@@ -82,7 +85,6 @@ public: // Accessors
     bool IsValid() const;
 
 public: // Modifiers
-    void AddSubstitution(const StringType& identifier, const StringType& newValue);
     bool Load(std::istream& is, const StringStore& definitions = {});
     bool LoadFile(const PathType& path, const StringStore& definitions = {});
     bool StoreFile(const PathType& path);
