@@ -750,9 +750,6 @@ CppFile::Load(std::istream& is, const StringStore& definitions)
             {
                 StringType identifier = first->get_value().c_str();
                 m_identiferPositions[identifier].push_back(m_processed);
-                auto pItem = m_identiferNewName.find(identifier);
-                if (m_identiferNewName.end() != pItem)
-                    ModifyText(m_processed, identifier, pItem->second);
             }
             else if (boost::wave::T_UNKNOWN == token)
             {
@@ -774,6 +771,19 @@ CppFile::Load(std::istream& is, const StringStore& definitions)
             auto pItem = m_identiferNewName.find(identifier);
             if (m_identiferNewName.end() != pItem && !AlreadyRemoved(item.startLine, item.endLine))
                 RemoveLines(item.startLine, item.endLine);
+        }
+        // Replace substituted identifiers
+        for (auto& item : m_identiferPositions)
+        {
+            auto pNameChange = m_identiferNewName.find(item.first);
+            if (m_identiferNewName.end() != pNameChange)
+            {
+                for (auto& itemPos : item.second)
+                {
+                    if (!AlreadyRemoved(itemPos.line, itemPos.line))
+                        ModifyText(itemPos, pNameChange->first, pNameChange->second);
+                }
+            }
         }
         ok = true;
     }
