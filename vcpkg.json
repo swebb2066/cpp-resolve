@@ -1,4 +1,7 @@
 {
+  "name": "cpp-resolve",
+  "version": "1.0.0",
+  "builtin-baseline": "afbbfa4e2280598c56c1c81b66981eb46e812a8d",
   "dependencies": [
     "boost-program-options",
     "boost-filesystem",
