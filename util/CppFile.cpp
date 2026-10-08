@@ -548,7 +548,9 @@ CppFile::CppFile
         );
     for (auto& item : substitutions)
         m_identiferNewName[item.first] = item.second;
-    if (!path.empty())
+    if (path.empty())
+        m_path = "<Unknown>";
+    else
         LoadFile(path, definitions);
 }
 
